@@ -6,7 +6,10 @@ from backend.ecosim.world import Terrain, World, generate_world
 
 
 ENERGY_LOSS_PER_TICK = 1.0
-ENERGY_FROM_GRASS = 20.0
+ENERGY_FROM_GRASS = 10.0
+
+MIN_EATING_TICKS = 1
+MAX_EATING_TICKS = 5
 
 
 @dataclass
@@ -93,6 +96,30 @@ class Simulation:
         self.world.rng.shuffle(herbivores)
 
         for animal in herbivores:
+            cell = self.world.cells[animal.y][animal.x]
+
+            # An animal already eating stays in place until its timer ends.
+            if animal.eating_ticks_remaining > 0:
+                animal.energy -= ENERGY_LOSS_PER_TICK
+                animal.eating_ticks_remaining -= 1
+
+                if animal.eating_ticks_remaining == 0:
+                    if cell.terrain == Terrain.GRASS:
+                        cell.terrain = Terrain.DIRT
+                        animal.energy += ENERGY_FROM_GRASS
+
+                continue
+
+            # If the animal starts this tick on grass, begin eating.
+            if cell.terrain == Terrain.GRASS:
+                animal.eating_ticks_remaining = self.world.rng.randint(
+                    MIN_EATING_TICKS,
+                    MAX_EATING_TICKS,
+                )
+                animal.energy -= ENERGY_LOSS_PER_TICK
+                continue
+
+            # Otherwise, look for a valid adjacent tile.
             occupied.remove((animal.x, animal.y))
 
             candidates = [
@@ -109,18 +136,19 @@ class Simulation:
                     if self.world.cells[y][x].terrain == Terrain.GRASS
                 ]
 
-                # Prefer grass whenever an unoccupied grass tile is adjacent.
+                # Prefer adjacent grass, then begin eating on arrival.
                 choices = grass_candidates or candidates
                 animal.x, animal.y = self.world.rng.choice(choices)
 
             occupied.add((animal.x, animal.y))
-
             animal.energy -= ENERGY_LOSS_PER_TICK
 
             cell = self.world.cells[animal.y][animal.x]
             if cell.terrain == Terrain.GRASS:
-                cell.terrain = Terrain.DIRT
-                animal.energy += ENERGY_FROM_GRASS
+                animal.eating_ticks_remaining = self.world.rng.randint(
+                    MIN_EATING_TICKS,
+                    MAX_EATING_TICKS,
+                )
 
     def _remove_starved_animals(self) -> None:
         self.animals = [

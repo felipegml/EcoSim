@@ -211,7 +211,7 @@ def test_herbivore_moves_one_tile_per_tick():
     config = WorldConfig(
         width=10,
         height=10,
-        grass_coverage=1.0,
+        grass_coverage=0.0,
         water_coverage=0.0,
         herbivore_count=1,
         predator_count=0,
@@ -239,10 +239,25 @@ def test_herbivore_eats_grass_and_gains_energy():
     simulation = Simulation.create(config)
     animal = simulation.animals[0]
 
+    # Start on grass so the eating timer begins immediately.
+    cell = simulation.world.cells[animal.y][animal.x]
+    assert cell.terrain == Terrain.GRASS
+
     simulation.step()
 
-    assert animal.energy == 119.0
-    assert simulation.world.cells[animal.y][animal.x].terrain == Terrain.DIRT
+    # Energy is spent while eating; grass is not consumed yet.
+    assert animal.energy == 99.0
+    assert animal.eating_ticks_remaining >= 0
+    assert cell.terrain == Terrain.GRASS
+
+    # Advance until the meal is complete.
+    for _ in range(5):
+        if animal.eating_ticks_remaining == 0:
+            break
+        simulation.step()
+
+    assert cell.terrain == Terrain.DIRT
+    assert animal.energy > 99.0
 
 
 def test_herbivores_never_share_tiles():

@@ -1,9 +1,8 @@
-
 from dataclasses import dataclass
 from enum import Enum
 
 
-class Species(str, Enum):
+class Species(Enum):
     HERBIVORE = "herbivore"
     PREDATOR = "predator"
 
@@ -15,3 +14,4 @@ class Animal:
     x: int
     y: int
     energy: float = 100.0
+    eating_ticks_remaining: int = 0
