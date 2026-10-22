@@ -6,6 +6,8 @@ import pytest
 from backend.ecosim.config import WorldConfig
 from backend.ecosim.simulation import Simulation
 from backend.ecosim.world import Terrain, generate_world
+from backend.ecosim.animals import Species
+from backend.ecosim.simulation import Simulation
 
 
 def terrain_layout(world):
@@ -124,6 +126,8 @@ def test_grass_regrows_when_chance_is_one():
         grass_coverage=0.0,
         water_coverage=0.0,
         grass_regrowth_chance=1.0,
+        herbivore_count=0,
+        predator_count=0,
     )
     simulation = Simulation.create(config)
 
@@ -146,3 +150,139 @@ def test_terrain_coverages_cannot_exceed_world():
 def test_water_patch_count_must_be_positive():
     with pytest.raises(ValueError):
         WorldConfig(water_patch_count=0)
+
+        
+def test_default_animal_population():
+    simulation = Simulation.create()
+
+    herbivores = [
+        a for a in simulation.animals
+        if a.species == Species.HERBIVORE
+    ]
+    predators = [
+        a for a in simulation.animals
+        if a.species == Species.PREDATOR
+    ]
+
+    assert len(herbivores) == 30
+    assert len(predators) == 5
+
+
+def test_animals_spawn_on_land():
+    simulation = Simulation.create()
+
+    for animal in simulation.animals:
+        assert simulation.world.cells[animal.y][animal.x].terrain != Terrain.WATER
+
+
+def test_animals_have_unique_positions_and_ids():
+    simulation = Simulation.create()
+
+    positions = [(a.x, a.y) for a in simulation.animals]
+    ids = [a.id for a in simulation.animals]
+
+    assert len(positions) == len(set(positions))
+    assert len(ids) == len(set(ids))
+
+
+def test_animals_are_reproducible_with_same_seed():
+    first = Simulation.create(WorldConfig(seed=123))
+    second = Simulation.create(WorldConfig(seed=123))
+
+    first_animals = [
+        (a.id, a.species, a.x, a.y)
+        for a in first.animals
+    ]
+    second_animals = [
+        (a.id, a.species, a.x, a.y)
+        for a in second.animals
+    ]
+
+    assert first_animals == second_animals
+
+
+def test_animals_start_with_full_energy():
+    simulation = Simulation.create()
+
+    assert all(a.energy == 100.0 for a in simulation.animals)
+
+    
+def test_herbivore_moves_one_tile_per_tick():
+    config = WorldConfig(
+        width=10,
+        height=10,
+        grass_coverage=1.0,
+        water_coverage=0.0,
+        herbivore_count=1,
+        predator_count=0,
+    )
+    simulation = Simulation.create(config)
+    animal = simulation.animals[0]
+    old_x, old_y = animal.x, animal.y
+
+    simulation.step()
+
+    distance = abs(animal.x - old_x) + abs(animal.y - old_y)
+    assert distance == 1
+
+
+def test_herbivore_eats_grass_and_gains_energy():
+    config = WorldConfig(
+        width=10,
+        height=10,
+        grass_coverage=1.0,
+        water_coverage=0.0,
+        grass_regrowth_chance=0.0,
+        herbivore_count=1,
+        predator_count=0,
+    )
+    simulation = Simulation.create(config)
+    animal = simulation.animals[0]
+
+    simulation.step()
+
+    assert animal.energy == 119.0
+    assert simulation.world.cells[animal.y][animal.x].terrain == Terrain.DIRT
+
+
+def test_herbivores_never_share_tiles():
+    config = WorldConfig(
+        width=10,
+        height=10,
+        grass_coverage=1.0,
+        water_coverage=0.0,
+        herbivore_count=20,
+        predator_count=5,
+    )
+    simulation = Simulation.create(config)
+
+    for _ in range(10):
+        simulation.step()
+
+        positions = [
+            (animal.x, animal.y)
+            for animal in simulation.animals
+        ]
+        assert len(positions) == len(set(positions))
+
+
+def test_herbivore_movement_is_reproducible():
+    first = Simulation.create(WorldConfig(seed=123))
+    second = Simulation.create(WorldConfig(seed=123))
+
+    for _ in range(5):
+        first.step()
+        second.step()
+
+    first_state = [
+        (a.id, a.x, a.y, a.energy)
+        for a in first.animals
+    ]
+    second_state = [
+        (a.id, a.x, a.y, a.energy)
+        for a in second.animals
+    ]
+
+    assert first_state == second_state
+
+
