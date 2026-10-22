@@ -1,3 +1,4 @@
+
 """Configuration for the Eco-Sim world."""
 
 from dataclasses import dataclass
@@ -8,8 +9,12 @@ class WorldConfig:
     width: int = 100
     height: int = 100
     seed: int = 42
+
     grass_coverage: float = 0.45
     water_coverage: float = 0.10
+
+    # Terrain generation
+    water_patch_count: int = 5
     grass_regrowth_chance: float = 0.01
 
     def __post_init__(self) -> None:
@@ -23,7 +28,12 @@ class WorldConfig:
             raise ValueError("Water coverage must be between 0 and 1.")
 
         if self.grass_coverage + self.water_coverage > 1:
-            raise ValueError("Grass and water coverage cannot exceed 100%.")
+            raise ValueError(
+                "Grass and water coverage cannot exceed 100%."
+            )
+
+        if self.water_patch_count < 1:
+            raise ValueError("Water patch count must be at least 1.")
 
         if not 0 <= self.grass_regrowth_chance <= 1:
             raise ValueError("Regrowth chance must be between 0 and 1.")
