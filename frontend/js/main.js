@@ -4,6 +4,7 @@ const context = canvas.getContext("2d");
 
 const worldSize = document.getElementById("world-size");
 const worldStatus = document.getElementById("world-status");
+const terrainStats = document.getElementById("terrain-stats");
 
 const terrainColors = {
     grass: "#65a85c",
@@ -23,6 +24,7 @@ async function loadWorld() {
         const world = await response.json();
 
         drawWorld(world);
+        renderTerrainStats(world);
         worldSize.textContent = `${world.width} × ${world.height}`;
         worldStatus.textContent = "World loaded";
     } catch (error) {
@@ -57,6 +59,54 @@ function drawWorld(world) {
             );
         });
     });
+}
+
+function renderTerrainStats(world) {
+    const counts = Object.fromEntries(
+        Object.keys(terrainColors).map(terrain => [terrain, 0])
+    );
+
+    for (const row of world.tiles) {
+        for (const terrain of row) {
+            if (terrain in counts) {
+                counts[terrain]++;
+            }
+        }
+    }
+
+    const total = world.width * world.height;
+    terrainStats.replaceChildren();
+
+    for (const [terrain, color] of Object.entries(terrainColors)) {
+        const count = counts[terrain];
+        const percentage = (count / total) * 100;
+
+        const card = document.createElement("div");
+        card.className = "terrain-stat";
+
+        const label = document.createElement("div");
+        label.className = "stat-label";
+
+        const swatch = document.createElement("i");
+        swatch.style.backgroundColor = color;
+
+        const name = document.createElement("span");
+        name.textContent =
+            terrain.charAt(0).toUpperCase() + terrain.slice(1);
+
+        label.append(swatch, name);
+
+        const countElement = document.createElement("strong");
+        countElement.className = "stat-count";
+        countElement.textContent = count.toLocaleString();
+
+        const percentElement = document.createElement("div");
+        percentElement.className = "stat-percent";
+        percentElement.textContent = `${percentage.toFixed(1)}% of world`;
+
+        card.append(label, countElement, percentElement);
+        terrainStats.append(card);
+    }
 }
 
 loadWorld();
