@@ -5,6 +5,8 @@ def validate_config(config: dict) -> None:
     width = world.get("width")
     height = world.get("height")
     seed = world.get("seed")
+    passes = world.get("water_smoothing_passes", 10)
+
 
     if not isinstance(width, int) or isinstance(width, bool) or width <= 0:
         raise ValueError("World width must be a positive integer.")
@@ -12,8 +14,10 @@ def validate_config(config: dict) -> None:
     if not isinstance(height, int) or isinstance(height, bool) or height <= 0:
         raise ValueError("World height must be a positive integer.")
 
-    if not isinstance(seed, int) or isinstance(seed, bool):
-        raise ValueError("World seed must be an integer.")
+    if seed is not None and (
+        not isinstance(seed, int) or isinstance(seed, bool)
+    ):
+        raise ValueError("world.seed must be an integer or null.")
 
     if not terrain:
         raise ValueError("Terrain percentages cannot be empty.")
@@ -31,3 +35,8 @@ def validate_config(config: dict) -> None:
 
     if not abs(sum(terrain.values()) - 100) < 1e-9:
         raise ValueError("Terrain percentages must total 100.")
+    
+    if not isinstance(passes, int) or isinstance(passes, bool) or passes < 1:
+        raise ValueError(
+            "world.water_smoothing_passes must be a positive integer."
+        )

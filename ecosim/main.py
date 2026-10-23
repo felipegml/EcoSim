@@ -1,5 +1,6 @@
 
 import json
+import random
 from pathlib import Path
 
 from ecosim.config.loader import load_config
@@ -11,6 +12,13 @@ def main() -> None:
     config = load_config()
     validate_config(config)
 
+    if config["world"]["seed"] is None:
+        config["world"]["seed"] = random.SystemRandom().randrange(
+            0, 2**32
+        )
+
+    print(f"World seed: {config['world']['seed']}")
+
     world = generate_world(config)
 
     project_root = Path(__file__).resolve().parents[1]
@@ -19,6 +27,7 @@ def main() -> None:
     world_data = {
         "width": len(world[0]),
         "height": len(world),
+        "seed": config["world"]["seed"],
         "tiles": world,
     }
 

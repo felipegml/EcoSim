@@ -6,6 +6,11 @@ const worldSize = document.getElementById("world-size");
 const worldStatus = document.getElementById("world-status");
 const terrainStats = document.getElementById("terrain-stats");
 
+const seedInput = document.getElementById("seed-input");
+const waterSmoothingInput = document.getElementById("water-smoothing");
+const generateButton = document.getElementById("generate-world");
+const randomWorldButton = document.getElementById("generate-random-world");
+
 const terrainColors = {
     grass: "#65a85c",
     dirt: "#b48a60",
@@ -110,3 +115,69 @@ function renderTerrainStats(world) {
 }
 
 loadWorld();
+
+async function generateNewWorld() {
+    generateButton.disabled = true;
+    worldStatus.textContent = "Generating world...";
+
+    try {
+        const rawSeed = seedInput.value.trim();
+        const smoothing = Number(waterSmoothingInput.value);
+
+        if (
+            waterSmoothingInput.value.trim() === "" ||
+            !Number.isInteger(smoothing) ||
+            smoothing < 1 ||
+            smoothing > 30
+        ) {
+            throw new Error("Water smoothing must be between 1 and 30.");
+        }
+
+        let seed = null;
+
+        if (rawSeed !== "") {
+            seed = Number(rawSeed);
+
+            if (!Number.isSafeInteger(seed)) {
+                throw new Error("Seed must be a valid integer.");
+            }
+        }
+
+        const response = await fetch("/api/world", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                seed: seed,
+                water_smoothing_passes: smoothing,
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error("Python could not generate the world.");
+        }
+
+        const world = await response.json();
+
+        seedInput.value = world.seed ?? "";
+
+        drawWorld(world);
+        renderTerrainStats(world);
+
+        worldSize.textContent = `${world.width} × ${world.height}`;
+        worldStatus.textContent = "World generated";
+        seedInput.value = world.seed;
+    } catch (error) {
+        worldStatus.textContent = error.message;
+        console.error(error);
+    } finally {
+        generateButton.disabled = false;
+    }
+}
+
+generateButton.addEventListener("click", generateNewWorld);
+randomWorldButton.addEventListener("click", () => {
+    seedInput.value = "";
+    generateNewWorld();
+});
