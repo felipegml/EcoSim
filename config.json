@@ -1,0 +1,13 @@
+{
+  "world": {
+    "width": 100,
+    "height": 100,
+    "seed": 12345
+  },
+  "terrain_percentages": {
+    "grass": 45,
+    "dirt": 25,
+    "water": 15,
+    "stone": 15
+  }
+}

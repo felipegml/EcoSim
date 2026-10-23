@@ -1,1 +1,0 @@
-"""Core Eco-Sim simulation package."""

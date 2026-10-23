@@ -1,0 +1,47 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoSim — World Viewer</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/main.js" defer></script>
+</head>
+<body>
+    <header>
+        <div>
+            <p class="eyebrow">ECOSYSTEM SIMULATOR</p>
+            <h1>EcoSim</h1>
+            <p class="subtitle">Explore your generated world.</p>
+        </div>
+        <div class="world-info">
+            <span>WORLD SIZE</span>
+            <strong id="world-size">Loading...</strong>
+        </div>
+    </header>
+
+    <main>
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>World map</h2>
+                    <p>Each square represents one terrain tile.</p>
+                </div>
+                <span id="world-status">Loading world...</span>
+            </div>
+
+            <div class="map-container">
+                <canvas id="world-map" aria-label="Generated world terrain map"></canvas>
+            </div>
+
+            <div class="legend">
+                <span><i class="grass"></i> Grass</span>
+                <span><i class="dirt"></i> Dirt</span>
+                <span><i class="water"></i> Water</span>
+                <span><i class="stone"></i> Stone</span>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
