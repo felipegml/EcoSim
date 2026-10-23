@@ -19,8 +19,23 @@ app = FastAPI(title="EcoSim API")
 
 
 class WorldSettings(BaseModel):
+    width: int = Field(default=100, ge=10, le=300)
+    height: int = Field(default=100, ge=10, le=300)
     seed: int | None = None
-    water_smoothing_passes: int = Field(default=10, ge=1)
+    water_smoothing_passes: int = Field(default=10, ge=1, le=30)
+    terrain_percentages: dict[str, float] = Field(
+        default_factory=lambda: {
+            "grass": 45,
+            "dirt": 25,
+            "water": 15,
+            "stone": 15,
+        }
+    )
+
+
+@app.get("/api/config")
+def get_config() -> dict:
+    return load_config()
 
 
 @app.post("/api/world")
@@ -32,10 +47,17 @@ def create_world(settings: WorldSettings) -> dict:
     if seed is None:
         seed = random.SystemRandom().randrange(0, 2**32)
 
-    config["world"]["seed"] = seed
+    config["world"]["width"] = settings.width
+    config["world"]["height"] = settings.height
+    config["world"]["seed"] = (
+        settings.seed
+        if settings.seed is not None
+        else random.SystemRandom().randrange(0, 2**32)
+    )
     config["world"]["water_smoothing_passes"] = (
         settings.water_smoothing_passes
     )
+    config["terrain_percentages"] = settings.terrain_percentages
 
     validate_config(config)
     world = generate_world(config)

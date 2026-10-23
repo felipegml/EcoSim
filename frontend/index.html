@@ -32,29 +32,56 @@
             </div>
             
             <div class="world-controls">
-                <label>
-                    Seed
-                    <input id="seed-input" type="number" placeholder="Random seed">
-                </label>
+                <div class="control-grid">
+                    <label>
+                        Width
+                        <input id="world-width" type="number" min="10" max="300" value="100">
+                    </label>
 
-                <label>
-                    Water smoothing
-                    <input
-                        id="water-smoothing"
-                        type="number"
-                        min="1"
-                        max="30"
-                        value="10"
-                    >
-                </label>
+                    <label>
+                        Height
+                        <input id="world-height" type="number" min="10" max="300" value="100">
+                    </label>
 
-                <button id="generate-world" type="button">
-                    Generate World
-                </button>
+                    <label>
+                        Seed
+                        <input id="seed-input" type="number" placeholder="Random seed">
+                    </label>
 
-                <button id="generate-random-world" type="button">
-                    Generate Random World
-                </button>
+                    <label>
+                        Water smoothing
+                        <input id="water-smoothing" type="number" min="1" max="30" value="10">
+                    </label>
+                </div>
+
+                <h3>Terrain percentages</h3>
+
+                <div class="control-grid terrain-controls">
+                    <label>
+                        Water (%)
+                        <input id="terrain-water" type="number" min="0" max="100" value="15">
+                    </label>
+
+                    <label>
+                        Grass (%)
+                        <input id="terrain-grass" type="number" min="0" max="100" value="45">
+                    </label>
+
+                    <label>
+                        Stone (%)
+                        <input id="terrain-stone" type="number" min="0" max="100" value="15">
+                    </label>
+
+                    <label>
+                        Dirt (%) — automatic
+                        <input id="terrain-dirt" type="number" value="25" readonly>
+                    </label>
+                </div>
+
+                <div class="generation-buttons">
+                    <button id="generate-world" type="button">Generate World</button>
+                    <button id="generate-random-world" type="button">Generate Random World</button>
+                </div>
             </div>
 
             <div class="map-container">

@@ -11,12 +11,41 @@ const waterSmoothingInput = document.getElementById("water-smoothing");
 const generateButton = document.getElementById("generate-world");
 const randomWorldButton = document.getElementById("generate-random-world");
 
+const widthInput = document.getElementById("world-width");
+const heightInput = document.getElementById("world-height");
+const waterInput = document.getElementById("terrain-water");
+const grassInput = document.getElementById("terrain-grass");
+const stoneInput = document.getElementById("terrain-stone");
+const dirtInput = document.getElementById("terrain-dirt");
+
 const terrainColors = {
     grass: "#65a85c",
     dirt: "#b48a60",
     water: "#398bc4",
     stone: "#929a9a",
 };
+
+async function loadConfigIntoControls() {
+    const response = await fetch("/api/config");
+
+    if (!response.ok) {
+        throw new Error("Could not load configuration.");
+    }
+
+    const config = await response.json();
+
+    widthInput.value = config.world.width;
+    heightInput.value = config.world.height;
+    seedInput.value = config.world.seed ?? "";
+    waterSmoothingInput.value =
+        config.world.water_smoothing_passes ?? 10;
+
+    waterInput.value = config.terrain_percentages.water;
+    grassInput.value = config.terrain_percentages.grass;
+    stoneInput.value = config.terrain_percentages.stone;
+
+    updateDirtPercentage();
+}
 
 async function loadWorld() {
     try {
@@ -66,6 +95,18 @@ function drawWorld(world) {
     });
 }
 
+function updateDirtPercentage() {
+    const water = Number(waterInput.value);
+    const grass = Number(grassInput.value);
+    const stone = Number(stoneInput.value);
+
+    dirtInput.value = 100 - water - grass - stone;
+}
+
+[waterInput, grassInput, stoneInput].forEach(input => {
+    input.addEventListener("input", updateDirtPercentage);
+});
+
 function renderTerrainStats(world) {
     const counts = Object.fromEntries(
         Object.keys(terrainColors).map(terrain => [terrain, 0])
@@ -114,23 +155,46 @@ function renderTerrainStats(world) {
     }
 }
 
-loadWorld();
-
 async function generateNewWorld() {
     generateButton.disabled = true;
+    randomWorldButton.disabled = true;
     worldStatus.textContent = "Generating world...";
 
     try {
-        const rawSeed = seedInput.value.trim();
+        const width = Number(widthInput.value);
+        const height = Number(heightInput.value);
         const smoothing = Number(waterSmoothingInput.value);
+        const rawSeed = seedInput.value.trim();
 
-        if (
-            waterSmoothingInput.value.trim() === "" ||
-            !Number.isInteger(smoothing) ||
-            smoothing < 1 ||
-            smoothing > 30
-        ) {
-            throw new Error("Water smoothing must be between 1 and 30.");
+        const water = Number(waterInput.value);
+        const grass = Number(grassInput.value);
+        const stone = Number(stoneInput.value);
+
+        const integersValid = [
+            [width, 10, 300],
+            [height, 10, 300],
+            [smoothing, 1, 30],
+        ].every(([value, min, max]) =>
+            Number.isInteger(value) && value >= min && value <= max
+        );
+
+        const percentagesValid = [water, grass, stone].every(
+            value => Number.isFinite(value) &&
+                     value >= 0 && value <= 100
+        );
+
+        const dirt = 100 - water - grass - stone;
+
+        if (!integersValid) {
+            throw new Error(
+                "Width and height must be 10–300; smoothing must be 1–30."
+            );
+        }
+
+        if (!percentagesValid || dirt < 0) {
+            throw new Error(
+                "Terrain percentages must be valid and total no more than 100%."
+            );
         }
 
         let seed = null;
@@ -145,34 +209,43 @@ async function generateNewWorld() {
 
         const response = await fetch("/api/world", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-                seed: seed,
+                width,
+                height,
+                seed,
                 water_smoothing_passes: smoothing,
+                terrain_percentages: {
+                    water,
+                    grass,
+                    stone,
+                    dirt,
+                },
             }),
         });
 
+        const result = await response.json();
+
         if (!response.ok) {
-            throw new Error("Python could not generate the world.");
+            throw new Error(
+                result.detail
+                    ? JSON.stringify(result.detail)
+                    : "Python could not generate the world."
+            );
         }
 
-        const world = await response.json();
+        drawWorld(result);
+        renderTerrainStats(result);
 
-        seedInput.value = world.seed ?? "";
-
-        drawWorld(world);
-        renderTerrainStats(world);
-
-        worldSize.textContent = `${world.width} × ${world.height}`;
+        worldSize.textContent = `${result.width} × ${result.height}`;
         worldStatus.textContent = "World generated";
-        seedInput.value = world.seed;
+        seedInput.value = result.seed;
     } catch (error) {
         worldStatus.textContent = error.message;
         console.error(error);
     } finally {
         generateButton.disabled = false;
+        randomWorldButton.disabled = false;
     }
 }
 
@@ -181,3 +254,15 @@ randomWorldButton.addEventListener("click", () => {
     seedInput.value = "";
     generateNewWorld();
 });
+
+async function initializeFrontend() {
+    try {
+        await loadConfigIntoControls();
+        await loadWorld();
+    } catch (error) {
+        worldStatus.textContent = "Could not initialize EcoSim";
+        console.error(error);
+    }
+}
+
+initializeFrontend();

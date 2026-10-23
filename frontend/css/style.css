@@ -342,3 +342,79 @@ canvas {
     background: #35483a;
     border: 1px solid #58745e;
 }
+
+
+.world-controls {
+    flex: 0 0 auto;
+    margin-bottom: 12px;
+}
+
+.control-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.world-controls h3 {
+    margin: 12px 0 8px;
+    font-size: 12px;
+    color: #aebcaf;
+}
+
+.world-controls label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+    color: #aebcaf;
+    font-size: 11px;
+}
+
+.world-controls input {
+    width: 100%;
+    min-width: 0;
+    padding: 7px;
+    color: #e8eee9;
+    background: #111713;
+    border: 1px solid #39483c;
+    border-radius: 6px;
+}
+
+.world-controls input[readonly] {
+    color: #8bc99a;
+    opacity: 0.85;
+}
+
+.generation-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.generation-buttons button {
+    padding: 9px 12px;
+    color: #102015;
+    background: #8bc99a;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.generation-buttons #generate-random-world {
+    color: #e8eee9;
+    background: #35483a;
+    border: 1px solid #58745e;
+}
+
+.generation-buttons button:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}
+
+@media (max-width: 900px) {
+    .control-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
