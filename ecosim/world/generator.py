@@ -60,6 +60,16 @@ def generate_world(config: dict) -> list[list[str]]:
 
     broad_noise = smooth_noise(broad_noise, passes=8)
 
+    # Make water scores depend partly on the surrounding landscape.
+    water_noise = [
+        [
+            water_noise[y][x] * 0.7
+            + broad_noise[y][x] * 0.3
+            for x in range(width)
+        ]
+        for y in range(height)
+    ]
+
     # Step 2: Generate smaller details.
     detail_noise = [
         [rng.random() for _ in range(width)]
@@ -77,6 +87,20 @@ def generate_world(config: dict) -> list[list[str]]:
         ]
         for y in range(height)
     ]
+
+    # Create separate patterns for dirt and stone.
+    dirt_noise = [
+        [rng.random() for _ in range(width)]
+        for _ in range(height)
+    ]
+
+    stone_noise = [
+        [rng.random() for _ in range(width)]
+        for _ in range(height)
+    ]
+
+    dirt_noise = smooth_noise(dirt_noise, passes=5)
+    stone_noise = smooth_noise(stone_noise, passes=5)
     
     # Step 4: Rank tiles using the landscape and water scores.
     ranked_tiles = sorted(
@@ -132,10 +156,21 @@ def generate_world(config: dict) -> list[list[str]]:
 
     # Step 7: Fill the remaining tiles with other terrain types.
     land_tiles = [
-        (score, x, y)
-        for score, x, y in ranked_tiles
+        (x, y)
+        for _, x, y in ranked_tiles
         if (x, y) not in water_positions
     ]
+
+    # Rank land separately for each terrain type.
+    land_by_dirt = sorted(
+        land_tiles,
+        key=lambda pos: dirt_noise[pos[1]][pos[0]],
+    )
+
+    land_by_stone = sorted(
+        land_tiles,
+        key=lambda pos: stone_noise[pos[1]][pos[0]],
+    )
 
     terrain_order = [
         name
@@ -149,16 +184,29 @@ def generate_world(config: dict) -> list[list[str]]:
         if name not in terrain_order and name != "water"
     )
 
-    position = 0
+    remaining_land = set(land_tiles)
 
     for terrain_name in terrain_order:
         terrain_count = counts[terrain_name]
 
-        for _, x, y in land_tiles[
-            position:position + terrain_count
-        ]:
+        if terrain_name == "dirt":
+            ranked_land = land_by_dirt
+        elif terrain_name == "stone":
+            ranked_land = land_by_stone
+        else:
+            ranked_land = sorted(
+                land_tiles,
+                key=lambda pos: scores[pos[1]][pos[0]],
+            )
+
+        selected = [
+            pos for pos in ranked_land
+            if pos in remaining_land
+        ][:terrain_count]
+
+        for x, y in selected:
             tiles[y][x] = terrain_name
 
-        position += terrain_count
+        remaining_land.difference_update(selected)
 
     return tiles
