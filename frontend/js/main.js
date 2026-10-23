@@ -18,6 +18,8 @@ const grassInput = document.getElementById("terrain-grass");
 const stoneInput = document.getElementById("terrain-stone");
 const dirtInput = document.getElementById("terrain-dirt");
 
+const generationSummary = document.getElementById("generation-summary");
+
 const terrainColors = {
     grass: "#65a85c",
     dirt: "#b48a60",
@@ -59,6 +61,7 @@ async function loadWorld() {
 
         drawWorld(world);
         renderTerrainStats(world);
+        updateGenerationSummary(world);
         worldSize.textContent = `${world.width} × ${world.height}`;
         worldStatus.textContent = "World loaded";
     } catch (error) {
@@ -155,6 +158,27 @@ function renderTerrainStats(world) {
     }
 }
 
+function updateGenerationSummary(world) {
+    const totalTiles = world.width * world.height;
+    const counts = {};
+
+    for (const row of world.tiles) {
+        for (const terrain of row) {
+            counts[terrain] = (counts[terrain] || 0) + 1;
+        }
+    }
+
+    const distribution = Object.entries(counts)
+        .map(([terrain, count]) => {
+            const percentage = (count / totalTiles) * 100;
+            return `${terrain}: ${percentage.toFixed(1)}%`;
+        })
+        .join(" · ");
+
+    generationSummary.textContent =
+        `Seed: ${world.seed} | Tiles: ${totalTiles.toLocaleString()} | ${distribution}`;
+}
+
 async function generateNewWorld() {
     generateButton.disabled = true;
     randomWorldButton.disabled = true;
@@ -236,6 +260,7 @@ async function generateNewWorld() {
 
         drawWorld(result);
         renderTerrainStats(result);
+        updateGenerationSummary(result);
 
         worldSize.textContent = `${result.width} × ${result.height}`;
         worldStatus.textContent = "World generated";

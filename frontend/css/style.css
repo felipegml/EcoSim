@@ -418,3 +418,15 @@ canvas {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
+
+#generation-summary {
+    margin: 10px 0;
+    padding: 10px 12px;
+    color: #c7d8ca;
+    background: #18221b;
+    border: 1px solid #35483a;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
