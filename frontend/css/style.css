@@ -28,11 +28,11 @@ header {
     flex: 0 0 auto;
     display: flex;
     justify-content: space-between;
-    align-items: center;
     gap: 20px;
     padding: 12px 24px;
     border-bottom: 1px solid #2a352d;
     background: #19221b;
+    align-items: stretch;
 }
 
 .eyebrow {
@@ -116,6 +116,11 @@ h2 {
     margin: 4px 0 0;
     color: #9daea1;
     font-size: 12px;
+}
+
+.panel-app-heading {
+    width: 100%;
+    box-sizing: border-box;
 }
 
 #world-status {
@@ -429,4 +434,48 @@ canvas {
     font-size: 12px;
     line-height: 1.6;
     overflow-wrap: anywhere;
+}
+
+.simulation-panel {
+    padding: 14px;
+    flex: 0 0 auto;
+}
+
+.simulation-clock {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin: 14px 0;
+}
+
+.simulation-clock > div {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px;
+    background: #18221b;
+    border: 1px solid #35483a;
+    border-radius: 6px;
+    min-width: 0;
+}
+
+.clock-label {
+    color: #aebcaf;
+    font-size: 11px;
+}
+
+.simulation-clock strong {
+    color: #e8eee9;
+    font-size: 18px;
+}
+
+#simulation-status {
+    color: #8bc99a;
+    font-size: 12px;
+}
+
+@media (max-width: 600px) {
+    .simulation-clock {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }

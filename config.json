@@ -10,5 +10,8 @@
     "dirt": 25,
     "water": 15,
     "stone": 15
+  },
+  "simulation": {
+    "ticks_per_second": 1
   }
 }

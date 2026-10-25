@@ -1,8 +1,11 @@
 
 import json
 import random
+import asyncio
+
 from pathlib import Path
 
+from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -11,11 +14,42 @@ from ecosim.config.loader import load_config
 from ecosim.config.validator import validate_config
 from ecosim.world.generator import generate_world
 
+from contextlib import suppress
+from ecosim.simulation.engine import SimulationEngine
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
 
-app = FastAPI(title="EcoSim API")
+simulation_engine = SimulationEngine()
+simulation_speed = load_config().get(
+    "simulation", {}
+).get("ticks_per_second", 1)
+simulation_task = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(simulation_loop())
+
+    try:
+        yield
+    finally:
+        task.cancel()
+
+        with suppress(asyncio.CancelledError):
+            await task
+
+app = FastAPI(title="EcoSim API", lifespan=lifespan)
+
+async def simulation_loop():
+    while True:
+        if simulation_engine.running:
+            await asyncio.sleep(1 / simulation_speed)
+
+            # A pause during the wait must prevent the next tick.
+            if simulation_engine.running:
+                simulation_engine.tick()
+        else:
+            await asyncio.sleep(0.1)
 
 
 class WorldSettings(BaseModel):
@@ -49,11 +83,7 @@ def create_world(settings: WorldSettings) -> dict:
 
     config["world"]["width"] = settings.width
     config["world"]["height"] = settings.height
-    config["world"]["seed"] = (
-        settings.seed
-        if settings.seed is not None
-        else random.SystemRandom().randrange(0, 2**32)
-    )
+    config["world"]["seed"] = seed
     config["world"]["water_smoothing_passes"] = (
         settings.water_smoothing_passes
     )
@@ -75,5 +105,56 @@ def create_world(settings: WorldSettings) -> dict:
 
     return world_data
 
+
+async def simulation_loop():
+    config = load_config()
+    speed = config.get("simulation", {}).get(
+        "ticks_per_second", 1
+    )
+
+    while True:
+        if simulation_engine.running:
+            await asyncio.sleep(1 / speed)
+
+            if simulation_engine.running:
+                simulation_engine.tick()
+        else:
+            await asyncio.sleep(0.1)
+
+
+@app.get("/api/simulation")
+def get_simulation_state():
+    return simulation_engine.get_state()
+
+
+@app.post("/api/simulation/start")
+def start_simulation():
+    simulation_engine.start()
+    return simulation_engine.get_state()
+
+
+@app.post("/api/simulation/pause")
+def pause_simulation():
+    simulation_engine.pause()
+    return simulation_engine.get_state()
+
+
+@app.post("/api/simulation/restart")
+def restart_simulation():
+    global simulation_speed
+
+    config = load_config()
+    validate_config(config)
+
+    simulation_speed = config.get(
+        "simulation", {}
+    ).get("ticks_per_second", 1)
+
+    simulation_engine.reset()
+
+    return {
+        **simulation_engine.get_state(),
+        "ticks_per_second": simulation_speed,
+    }
 
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

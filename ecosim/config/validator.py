@@ -1,3 +1,6 @@
+from ecosim import simulation
+
+
 def validate_config(config: dict) -> None:
     world = config.get("world", {})
     terrain = config.get("terrain_percentages", {})
@@ -6,6 +9,9 @@ def validate_config(config: dict) -> None:
     height = world.get("height")
     seed = world.get("seed")
     passes = world.get("water_smoothing_passes", 10)
+
+    simulation = config.get("simulation", {})
+    speed = simulation.get("ticks_per_second", 1)
 
 
     if not isinstance(width, int) or isinstance(width, bool) or width <= 0:
@@ -39,4 +45,12 @@ def validate_config(config: dict) -> None:
     if not isinstance(passes, int) or isinstance(passes, bool) or passes < 1:
         raise ValueError(
             "world.water_smoothing_passes must be a positive integer."
+        )
+    if (
+        not isinstance(speed, (int, float))
+        or isinstance(speed, bool)
+        or speed <= 0
+    ):
+        raise ValueError(
+            "simulation.ticks_per_second must be a positive number."
         )

@@ -10,21 +10,57 @@
 </head>
 <body>
     <header>
-        <div>
-            <p class="eyebrow">ECOSYSTEM SIMULATOR</p>
-            <h1>EcoSim</h1>
-            <p class="subtitle">Explore your generated world.</p>
-        </div>
-        <div class="world-info">
-            <span>WORLD SIZE</span>
-            <strong id="world-size">Loading...</strong>
-            <p id="generation-summary">
-                Waiting for world data...
-            </p>
-        </div>
+        <section class="panel">
+            <div class="panel-heading panel-app-heading">
+                <div>
+                    <p class="eyebrow">ECOSYSTEM SIMULATOR</p>
+                    <h1>EcoSim</h1>
+                    <p class="subtitle">Explore your generated world.</p>
+                </div>
+                <div class="world-info">
+                    <span>WORLD SIZE</span>
+                    <strong id="world-size">Loading...</strong>
+                    <p id="generation-summary">
+                        Waiting for world data...
+                    </p>
+                </div>
+            </div>
+        </section>
+        <section class="panel simulation-panel">
+            <div class="panel-heading">
+                <h2>Simulation Time</h2>
+                <span id="simulation-status">Paused</span>
+            </div>
+
+            <div class="simulation-clock">
+                <div>
+                    <span class="clock-label">Time</span>
+                    <strong id="simulation-hour">00:00</strong>
+                </div>
+                <div>
+                    <span class="clock-label">Day</span>
+                    <strong id="simulation-day">1</strong>
+                </div>
+                <div>
+                    <span class="clock-label">Year</span>
+                    <strong id="simulation-year">1</strong>
+                </div>
+                <div>
+                    <span class="clock-label">Season</span>
+                    <strong id="simulation-season">Spring</strong>
+                </div>
+            </div>
+
+            <div class="generation-buttons">
+                <button id="simulation-start" type="button">Start</button>
+                <button id="simulation-pause" type="button">Pause</button>
+                <button id="simulation-restart" type="button">Restart</button>
+            </div>
+        </section>
     </header>
 
     <main>
+        
         <section class="panel">
             <div class="panel-heading">
                 <div>
@@ -99,6 +135,8 @@
             </div>
         </section>
         
+        
+
         <section class="panel statistics-panel">
             <div class="panel-heading">
                 <div>
@@ -109,6 +147,7 @@
 
             <div id="terrain-stats" class="terrain-stats"></div>
         </section>
+        
 
     </main>
 </body>

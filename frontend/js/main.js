@@ -20,12 +20,22 @@ const dirtInput = document.getElementById("terrain-dirt");
 
 const generationSummary = document.getElementById("generation-summary");
 
+const simulationStatus = document.getElementById("simulation-status");
+const simulationHour = document.getElementById("simulation-hour");
+const simulationDay = document.getElementById("simulation-day");
+const simulationYear = document.getElementById("simulation-year");
+const simulationSeason = document.getElementById("simulation-season");
+const simulationStartButton = document.getElementById("simulation-start");
+const simulationPauseButton = document.getElementById("simulation-pause");
+const simulationRestartButton = document.getElementById("simulation-restart");
+
 const terrainColors = {
     grass: "#65a85c",
     dirt: "#b48a60",
     water: "#398bc4",
     stone: "#929a9a",
 };
+
 
 async function loadConfigIntoControls() {
     const response = await fetch("/api/config");
@@ -274,16 +284,77 @@ async function generateNewWorld() {
     }
 }
 
+async function refreshSimulationState() {
+    try {
+        const response = await fetch("/api/simulation");
+
+        if (!response.ok) {
+            throw new Error("Could not load simulation state.");
+        }
+
+        const state = await response.json();
+
+        simulationHour.textContent =
+            `${String(state.hour).padStart(2, "0")}:00`;
+
+        simulationDay.textContent = state.day;
+        simulationYear.textContent = state.year;
+
+        simulationSeason.textContent =
+            state.season.charAt(0).toUpperCase()
+            + state.season.slice(1);
+
+        simulationStatus.textContent =
+            state.running ? "Running" : "Paused";
+    } catch (error) {
+        simulationStatus.textContent = "Connection error";
+        console.error(error);
+    }
+}
+
+async function controlSimulation(action) {
+    try {
+        const response = await fetch(
+            `/api/simulation/${action}`,
+            { method: "POST" }
+        );
+
+        if (!response.ok) {
+            throw new Error(`Could not ${action} simulation.`);
+        }
+
+        await refreshSimulationState();
+    } catch (error) {
+        simulationStatus.textContent = "Connection error";
+        console.error(error);
+    }
+}
+
 generateButton.addEventListener("click", generateNewWorld);
 randomWorldButton.addEventListener("click", () => {
     seedInput.value = "";
     generateNewWorld();
 });
 
+simulationStartButton.addEventListener("click", () => {
+    controlSimulation("start");
+});
+
+simulationPauseButton.addEventListener("click", () => {
+    controlSimulation("pause");
+});
+
+simulationRestartButton.addEventListener("click", () => {
+    controlSimulation("restart");
+});
+
 async function initializeFrontend() {
     try {
         await loadConfigIntoControls();
         await loadWorld();
+
+        await refreshSimulationState();
+        setInterval(refreshSimulationState, 1000);
     } catch (error) {
         worldStatus.textContent = "Could not initialize EcoSim";
         console.error(error);
