@@ -26,8 +26,17 @@ simulation_speed = load_config().get(
 ).get("ticks_per_second", 1)
 simulation_task = None
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    world_path = FRONTEND_DIR / "world.json"
+
+    if world_path.exists():
+        with world_path.open("r", encoding="utf-8") as file:
+            world_data = json.load(file)
+
+        simulation_engine.load_world(world_data["tiles"])
+
     task = asyncio.create_task(simulation_loop())
 
     try:
@@ -38,7 +47,9 @@ async def lifespan(app: FastAPI):
         with suppress(asyncio.CancelledError):
             await task
 
+
 app = FastAPI(title="EcoSim API", lifespan=lifespan)
+
 
 async def simulation_loop():
     while True:
@@ -67,6 +78,10 @@ class WorldSettings(BaseModel):
     )
 
 
+class SimulationSpeed(BaseModel):
+    ticks_per_second: float = Field(gt=0, le=100)
+
+
 @app.get("/api/config")
 def get_config() -> dict:
     return load_config()
@@ -91,6 +106,7 @@ def create_world(settings: WorldSettings) -> dict:
 
     validate_config(config)
     world = generate_world(config)
+    simulation_engine.load_world(world)
 
     world_data = {
         "width": len(world[0]),
@@ -115,6 +131,17 @@ async def simulation_loop():
     while True:
         if simulation_engine.running:
             await asyncio.sleep(1 / speed)
+
+            if simulation_engine.running:
+                simulation_engine.tick()
+        else:
+            await asyncio.sleep(0.1)
+
+async def simulation_loop():
+    while True:
+        if simulation_engine.running:
+            current_speed = simulation_speed
+            await asyncio.sleep(1 / current_speed)
 
             if simulation_engine.running:
                 simulation_engine.tick()
@@ -156,5 +183,25 @@ def restart_simulation():
         **simulation_engine.get_state(),
         "ticks_per_second": simulation_speed,
     }
+
+
+@app.get("/api/terrain/moisture")
+def get_terrain_moisture():
+    if simulation_engine.terrain is None:
+        return {"error": "No world loaded"}
+
+    return simulation_engine.terrain.get_state()
+
+
+@app.post("/api/simulation/speed")
+def set_simulation_speed(settings: SimulationSpeed):
+    global simulation_speed
+
+    simulation_speed = settings.ticks_per_second
+
+    return {
+        "ticks_per_second": simulation_speed
+    }
+
 
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

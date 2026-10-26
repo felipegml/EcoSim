@@ -13,5 +13,13 @@
   },
   "simulation": {
     "ticks_per_second": 1
+  },
+  "terrain_simulation": {
+    "moisture_diffusion": 0.05,
+    "evaporation_rate": 0.001,
+    "water_moisture": 1.0,
+    "grass_moisture": 0.5,
+    "dirt_moisture": 0.25,
+    "stone_moisture": 0.0
   }
 }

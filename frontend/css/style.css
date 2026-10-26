@@ -439,6 +439,7 @@ canvas {
 .simulation-panel {
     padding: 14px;
     flex: 0 0 auto;
+    display: flex;
 }
 
 .simulation-clock {

@@ -11,7 +11,7 @@
 <body>
     <header>
         <section class="panel">
-            <div class="panel-heading panel-app-heading">
+            <div class="panel-heading">
                 <div>
                     <p class="eyebrow">ECOSYSTEM SIMULATOR</p>
                     <h1>EcoSim</h1>
@@ -31,7 +31,7 @@
                 <h2>Simulation Time</h2>
                 <span id="simulation-status">Paused</span>
             </div>
-
+            <div class="panel-heading">
             <div class="simulation-clock">
                 <div>
                     <span class="clock-label">Time</span>
@@ -55,6 +55,19 @@
                 <button id="simulation-start" type="button">Start</button>
                 <button id="simulation-pause" type="button">Pause</button>
                 <button id="simulation-restart" type="button">Restart</button>
+            </div>
+            <div class="speed-control">
+                <label for="simulation-speed">Simulation speed</label>
+                <select id="simulation-speed">
+                    <option value="1">1×</option>
+                    <option value="2">2×</option>
+                    <option value="5">5×</option>
+                    <option value="10">10×</option>
+                    <option value="25">25×</option>
+                    <option value="50">50×</option>
+                    <option value="100">100×</option>
+                </select>
+            </div>
             </div>
         </section>
     </header>
@@ -120,7 +133,9 @@
                 <div class="generation-buttons">
                     <button id="generate-world" type="button">Generate World</button>
                     <button id="generate-random-world" type="button">Generate Random World</button>
+                    <button id="toggle-moisture" type="toggle">Show Moisture</button>
                 </div>
+
             </div>
 
             <div class="map-container">

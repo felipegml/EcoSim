@@ -29,6 +29,10 @@ const simulationStartButton = document.getElementById("simulation-start");
 const simulationPauseButton = document.getElementById("simulation-pause");
 const simulationRestartButton = document.getElementById("simulation-restart");
 
+const moistureButton = document.getElementById("toggle-moisture");
+
+const simulationSpeed = document.getElementById("simulation-speed");
+
 const terrainColors = {
     grass: "#65a85c",
     dirt: "#b48a60",
@@ -36,6 +40,9 @@ const terrainColors = {
     stone: "#929a9a",
 };
 
+let moistureVisible = false;
+let moistureData = null;
+let currentWorld = null;
 
 async function loadConfigIntoControls() {
     const response = await fetch("/api/config");
@@ -69,6 +76,7 @@ async function loadWorld() {
 
         const world = await response.json();
 
+        currentWorld = world;
         drawWorld(world);
         renderTerrainStats(world);
         updateGenerationSummary(world);
@@ -80,6 +88,40 @@ async function loadWorld() {
     }
 }
 
+async function loadMoisture() {
+    const response = await fetch(
+        "/api/terrain/moisture",
+        { cache: "no-store" }
+    );
+
+    if (!response.ok) {
+        throw new Error("Could not load terrain moisture.");
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+        throw new Error(data.error);
+    }
+
+    moistureData = data.moisture;
+}
+
+
+async function refreshMoistureView() {
+    if (!moistureVisible || !currentWorld) {
+        return;
+    }
+
+    try {
+        await loadMoisture();
+        drawWorld(currentWorld);
+    } catch (error) {
+        console.error("Moisture refresh failed:", error);
+    }
+}
+
+
 function drawWorld(world) {
     const tileSize = 20;
 
@@ -88,7 +130,30 @@ function drawWorld(world) {
 
     world.tiles.forEach((row, y) => {
         row.forEach((terrain, x) => {
-            context.fillStyle = terrainColors[terrain] ?? "#ff00ff";
+            const terrainColor =
+                terrainColors[terrain] ?? "#ff00ff";
+
+            if (
+                moistureVisible &&
+                moistureData?.[y]?.[x] !== undefined
+            ) {
+                const moisture = moistureData[y][x];
+
+                // More moisture means a stronger blue overlay.
+                const alpha = moisture * 0.75;
+
+                context.fillStyle = terrainColor;
+                context.fillRect(
+                    x * tileSize,
+                    y * tileSize,
+                    tileSize,
+                    tileSize
+                );
+
+                context.fillStyle = `rgba(30, 120, 255, ${alpha})`;
+            } else {
+                context.fillStyle = terrainColor;
+            }
 
             context.fillRect(
                 x * tileSize,
@@ -268,6 +333,9 @@ async function generateNewWorld() {
             );
         }
 
+        currentWorld = result;
+        moistureData = null;
+
         drawWorld(result);
         renderTerrainStats(result);
         updateGenerationSummary(result);
@@ -348,13 +416,60 @@ simulationRestartButton.addEventListener("click", () => {
     controlSimulation("restart");
 });
 
+moistureButton.addEventListener("click", async () => {
+    try {
+        if (!moistureVisible) {
+            await loadMoisture();
+            moistureVisible = true;
+            moistureButton.textContent = "Show Terrain";
+        } else {
+            moistureVisible = false;
+            moistureButton.textContent = "Show Moisture";
+        }
+
+        if (currentWorld) {
+            drawWorld(currentWorld);
+        }
+    } catch (error) {
+        console.error(error);
+        worldStatus.textContent = "Could not load moisture data";
+    }
+});
+
+simulationSpeed.addEventListener("change", async () => {
+    try {
+        const response = await fetch("/api/simulation/speed", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                ticks_per_second: Number(simulationSpeed.value),
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error("Could not update simulation speed.");
+        }
+
+        //const data = await response.json();
+        //console.log("Speed API response:", data);
+
+    } catch (error) {
+        console.error(error);
+        worldStatus.textContent = "Could not update simulation speed";
+    }
+});
+
 async function initializeFrontend() {
     try {
         await loadConfigIntoControls();
         await loadWorld();
 
         await refreshSimulationState();
+
         setInterval(refreshSimulationState, 1000);
+        setInterval(refreshMoistureView, 1000);
     } catch (error) {
         worldStatus.textContent = "Could not initialize EcoSim";
         console.error(error);
