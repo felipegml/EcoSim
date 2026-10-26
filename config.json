@@ -21,5 +21,22 @@
     "grass_moisture": 0.5,
     "dirt_moisture": 0.25,
     "stone_moisture": 0.0
+  },
+  "seasonal_evaporation": {
+    "spring": 0.0005,
+    "summer": 0.003,
+    "autumn": 0.001,
+    "winter": 0.0002
+  },
+  "weather": {
+    "rain_chance_per_tick": {
+      "spring": 0.03,
+      "summer": 0.01,
+      "autumn": 0.04,
+      "winter": 0.025
+    },
+    "minimum_duration_ticks": 3,
+    "maximum_duration_ticks": 12,
+    "moisture_per_tick": 0.025
   }
 }

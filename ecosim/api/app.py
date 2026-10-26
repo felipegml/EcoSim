@@ -1,11 +1,10 @@
-
 import json
 import random
 import asyncio
 
 from pathlib import Path
-
 from contextlib import asynccontextmanager, suppress
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -13,8 +12,6 @@ from pydantic import BaseModel, Field
 from ecosim.config.loader import load_config
 from ecosim.config.validator import validate_config
 from ecosim.world.generator import generate_world
-
-from contextlib import suppress
 from ecosim.simulation.engine import SimulationEngine
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -35,7 +32,15 @@ async def lifespan(app: FastAPI):
         with world_path.open("r", encoding="utf-8") as file:
             world_data = json.load(file)
 
-        simulation_engine.load_world(world_data["tiles"])
+        config = load_config()
+        terrain_settings = config.get("terrain_simulation", {})
+
+        simulation_engine.load_world(
+            world_data["tiles"],
+            terrain_settings=terrain_settings,
+            weather_settings=terrain_settings.get("weather", {}),
+            seed=world_data.get("seed"),
+        )
 
     task = asyncio.create_task(simulation_loop())
 
@@ -106,7 +111,17 @@ def create_world(settings: WorldSettings) -> dict:
 
     validate_config(config)
     world = generate_world(config)
-    simulation_engine.load_world(world)
+
+    terrain_settings = config.get("terrain_simulation", {})
+
+    simulation_engine.pause()
+    simulation_engine.load_world(
+        world,
+        terrain_settings=terrain_settings,
+        weather_settings=terrain_settings.get("weather", {}),
+        seed=seed,
+    )
+    simulation_engine.reset()
 
     world_data = {
         "width": len(world[0]),
@@ -121,21 +136,6 @@ def create_world(settings: WorldSettings) -> dict:
 
     return world_data
 
-
-async def simulation_loop():
-    config = load_config()
-    speed = config.get("simulation", {}).get(
-        "ticks_per_second", 1
-    )
-
-    while True:
-        if simulation_engine.running:
-            await asyncio.sleep(1 / speed)
-
-            if simulation_engine.running:
-                simulation_engine.tick()
-        else:
-            await asyncio.sleep(0.1)
 
 async def simulation_loop():
     while True:
@@ -204,4 +204,8 @@ def set_simulation_speed(settings: SimulationSpeed):
     }
 
 
-app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+app.mount(
+    "/",
+    StaticFiles(directory=FRONTEND_DIR, html=True),
+    name="frontend",
+)

@@ -480,3 +480,35 @@ canvas {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
+
+.rain-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+
+    background-image: repeating-linear-gradient(
+        105deg,
+        transparent 0,
+        transparent 18px,
+        rgba(180, 220, 255, 0.65) 19px,
+        transparent 21px
+    );
+
+    background-size: 35px 45px;
+    animation: rain-fall 0.4s linear infinite;
+}
+
+.rain-overlay[hidden] {
+    display: none;
+}
+
+@keyframes rain-fall {
+    from {
+        background-position: 0 0;
+    }
+
+    to {
+        background-position: -12px 45px;
+    }
+}

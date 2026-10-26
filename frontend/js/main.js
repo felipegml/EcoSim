@@ -2,6 +2,15 @@
 const canvas = document.getElementById("world-map");
 const context = canvas.getContext("2d");
 
+const mapContainer = canvas.parentElement;
+mapContainer.style.position = "relative";
+
+const rainOverlay = document.createElement("div");
+rainOverlay.className = "rain-overlay";
+rainOverlay.hidden = true;
+
+mapContainer.appendChild(rainOverlay);
+
 const worldSize = document.getElementById("world-size");
 const worldStatus = document.getElementById("world-status");
 const terrainStats = document.getElementById("terrain-stats");
@@ -32,6 +41,8 @@ const simulationRestartButton = document.getElementById("simulation-restart");
 const moistureButton = document.getElementById("toggle-moisture");
 
 const simulationSpeed = document.getElementById("simulation-speed");
+
+const weatherStatus = document.getElementById("weather-status");
 
 const terrainColors = {
     grass: "#65a85c",
@@ -374,6 +385,16 @@ async function refreshSimulationState() {
 
         simulationStatus.textContent =
             state.running ? "Running" : "Paused";
+
+        if (state.is_raining) {
+            weatherStatus.textContent =
+                `🌧 Raining — ${state.intensity}`;
+        } else {
+            weatherStatus.textContent = "☀ Clear";
+        }
+
+        rainOverlay.hidden = !state.is_raining;
+
     } catch (error) {
         simulationStatus.textContent = "Connection error";
         console.error(error);
