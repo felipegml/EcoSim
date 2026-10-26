@@ -442,10 +442,12 @@ moistureButton.addEventListener("click", async () => {
         if (!moistureVisible) {
             await loadMoisture();
             moistureVisible = true;
-            moistureButton.textContent = "Show Terrain";
+            moistureButton.textContent = "🗺️";
+            moistureButton.title = "Show terrain";
         } else {
             moistureVisible = false;
-            moistureButton.textContent = "Show Moisture";
+            moistureButton.textContent = "💧";
+            moistureButton.title = "Show moisture";
         }
 
         if (currentWorld) {

@@ -4,34 +4,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EcoSim — World Viewer</title>
-    <link rel="stylesheet" href="css/style.css">
-    <script src="js/main.js" defer></script>
+    <title>EcoSim</title>
+    <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <header>
-        <section class="panel">
-            <div class="panel-heading">
-                <div>
-                    <p class="eyebrow">ECOSYSTEM SIMULATOR</p>
-                    <h1>EcoSim</h1>
-                    <p class="subtitle">Explore your generated world.</p>
-                </div>
-                <div class="world-info">
-                    <span>WORLD SIZE</span>
-                    <strong id="world-size">Loading...</strong>
-                    <p id="generation-summary">
-                        Waiting for world data...
-                    </p>
-                </div>
+    <header class="dashboard-header">
+        <section class="panel brand-panel">
+            <div>
+                <p class="eyebrow">ECOSYSTEM SIMULATOR</p>
+                <h1>EcoSim</h1>
+                <p class="subtitle">Explore your generated world.</p>
+            </div>
+
+            <div class="world-info">
+                <span>WORLD SIZE</span>
+                <strong id="world-size">Loading...</strong>
+                <p id="generation-summary">Waiting for world data...</p>
             </div>
         </section>
+
         <section class="panel simulation-panel">
-            <div class="panel-heading">
+            <div class="simulation-top">
                 <h2>Simulation Time</h2>
                 <span id="simulation-status">Paused</span>
             </div>
-            <div class="panel-heading">
+
             <div class="simulation-clock">
                 <div>
                     <span class="clock-label">Time</span>
@@ -50,99 +47,76 @@
                     <strong id="simulation-season">Spring</strong>
                 </div>
                 <div id="weather-status" class="weather-status">
-                    Weather: Clear
+                    ☀ Clear
                 </div>
             </div>
 
-            <div class="generation-buttons">
-                <button id="simulation-start" type="button">Start</button>
-                <button id="simulation-pause" type="button">Pause</button>
-                <button id="simulation-restart" type="button">Restart</button>
-            </div>
-            <div class="speed-control">
-                <label for="simulation-speed">Simulation speed</label>
-                <select id="simulation-speed">
-                    <option value="1">1×</option>
-                    <option value="2">2×</option>
-                    <option value="5">5×</option>
-                    <option value="10">10×</option>
-                    <option value="25">25×</option>
-                    <option value="50">50×</option>
-                    <option value="100">100×</option>
-                </select>
-            </div>
+            <div class="simulation-controls">
+                <div class="generation-buttons">
+                    <button id="simulation-start" type="button">Start</button>
+                    <button id="simulation-pause" type="button">Pause</button>
+                    <button id="simulation-restart" type="button">Restart</button>
+                </div>
+
+                <div class="speed-control">
+                    <label for="simulation-speed">Speed</label>
+                    <select id="simulation-speed">
+                        <option value="1">1×</option>
+                        <option value="2">2×</option>
+                        <option value="5">5×</option>
+                        <option value="10">10×</option>
+                        <option value="25">25×</option>
+                        <option value="50">50×</option>
+                        <option value="100">100×</option>
+                    </select>
+                </div>
             </div>
         </section>
     </header>
 
     <main>
-        
-        <section class="panel">
-            <div class="panel-heading">
+        <section class="panel world-panel">
+            <div class="world-heading">
                 <div>
-                    <h2>World map</h2>
+                    <h2>World Map</h2>
                     <p>Each square represents one terrain tile.</p>
                 </div>
-                <span id="world-status">Loading world...</span>
-            </div>
-            
-            <div class="world-controls">
-                <div class="control-grid">
-                    <label>
-                        Width
-                        <input id="world-width" type="number" min="10" max="300" value="100">
-                    </label>
 
-                    <label>
-                        Height
-                        <input id="world-height" type="number" min="10" max="300" value="100">
-                    </label>
+                <div class="world-heading-actions">
+                    <span id="world-status">Loading world...</span>
 
-                    <label>
-                        Seed
-                        <input id="seed-input" type="number" placeholder="Random seed">
-                    </label>
+                    <button
+                        id="open-world-settings"
+                        type="button"
+                        title="Open world settings"
+                    >
+                        ⚙ Settings
+                    </button>
 
-                    <label>
-                        Water smoothing
-                        <input id="water-smoothing" type="number" min="1" max="30" value="10">
-                    </label>
+                    <button
+                        id="open-terrain-stats"
+                        type="button"
+                        title="View terrain composition"
+                    >
+                        ▤ Composition
+                    </button>
+
+                    <button
+                        id="toggle-moisture"
+                        type="button"
+                        title="Toggle terrain moisture"
+                        aria-label="Toggle terrain moisture"
+                    >
+                        💧
+                    </button>
                 </div>
-
-                <h3>Terrain percentages</h3>
-
-                <div class="control-grid terrain-controls">
-                    <label>
-                        Water (%)
-                        <input id="terrain-water" type="number" min="0" max="100" value="15">
-                    </label>
-
-                    <label>
-                        Grass (%)
-                        <input id="terrain-grass" type="number" min="0" max="100" value="45">
-                    </label>
-
-                    <label>
-                        Stone (%)
-                        <input id="terrain-stone" type="number" min="0" max="100" value="15">
-                    </label>
-
-                    <label>
-                        Dirt (%) — automatic
-                        <input id="terrain-dirt" type="number" value="25" readonly>
-                    </label>
-                </div>
-
-                <div class="generation-buttons">
-                    <button id="generate-world" type="button">Generate World</button>
-                    <button id="generate-random-world" type="button">Generate Random World</button>
-                    <button id="toggle-moisture" type="toggle">Show Moisture</button>
-                </div>
-
             </div>
 
             <div class="map-container">
-                <canvas id="world-map" aria-label="Generated world terrain map"></canvas>
+                <canvas
+                    id="world-map"
+                    aria-label="Generated world terrain map"
+                ></canvas>
             </div>
 
             <div class="legend">
@@ -152,21 +126,172 @@
                 <span><i class="stone"></i> Stone</span>
             </div>
         </section>
-        
-        
+    </main>
 
-        <section class="panel statistics-panel">
-            <div class="panel-heading">
-                <div>
-                    <h2>Terrain composition</h2>
-                    <p>Actual tile counts compared with the configured world.</p>
+    <!-- World settings overlay -->
+    <div id="world-settings-overlay" class="overlay" hidden>
+        <section
+            class="overlay-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="world-settings-title"
+        >
+            <div class="overlay-heading">
+                <h2 id="world-settings-title">World Settings</h2>
+                <button type="button" class="close-overlay">✕</button>
+            </div>
+
+            <p class="overlay-description">
+                Configure the world before generating it.
+            </p>
+
+            <div class="world-controls">
+                <h3>World dimensions</h3>
+
+                <div class="control-grid">
+                    <label for="world-width">
+                        Width
+                        <input id="world-width" type="number" min="10" max="300">
+                    </label>
+
+                    <label for="world-height">
+                        Height
+                        <input id="world-height" type="number" min="10" max="300">
+                    </label>
+
+                    <label for="seed-input">
+                        Seed
+                        <input id="seed-input" type="number" step="1">
+                    </label>
+
+                    <label for="water-smoothing">
+                        Water smoothing
+                        <input
+                            id="water-smoothing"
+                            type="number"
+                            min="1"
+                            max="30"
+                        >
+                    </label>
+                </div>
+
+                <h3>Terrain percentages</h3>
+
+                <div class="control-grid terrain-controls">
+                    <label for="terrain-water">
+                        Water (%)
+                        <input
+                            id="terrain-water"
+                            type="number"
+                            min="0"
+                            max="100"
+                        >
+                    </label>
+
+                    <label for="terrain-grass">
+                        Grass (%)
+                        <input
+                            id="terrain-grass"
+                            type="number"
+                            min="0"
+                            max="100"
+                        >
+                    </label>
+
+                    <label for="terrain-stone">
+                        Stone (%)
+                        <input
+                            id="terrain-stone"
+                            type="number"
+                            min="0"
+                            max="100"
+                        >
+                    </label>
+
+                    <label for="terrain-dirt">
+                        Dirt (%) — automatic
+                        <input id="terrain-dirt" type="number" readonly>
+                    </label>
+                </div>
+
+                <div class="generation-actions">
+                    <button id="generate-world" type="button">
+                        Generate World
+                    </button>
+
+                    <button id="generate-random-world" type="button">
+                        Generate Random World
+                    </button>
                 </div>
             </div>
+        </section>
+    </div>
+
+    <!-- Terrain composition overlay -->
+    <div id="terrain-stats-overlay" class="overlay" hidden>
+        <section
+            class="overlay-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="terrain-stats-title"
+        >
+            <div class="overlay-heading">
+                <h2 id="terrain-stats-title">Terrain Composition</h2>
+                <button type="button" class="close-overlay">✕</button>
+            </div>
+
+            <p class="overlay-description">
+                Actual tile counts and percentages in the current world.
+            </p>
 
             <div id="terrain-stats" class="terrain-stats"></div>
         </section>
-        
+    </div>
 
-    </main>
+    <script src="/js/main.js"></script>
+
+    <!-- Overlay controls -->
+    <script>
+        const worldSettingsOverlay =
+            document.getElementById("world-settings-overlay");
+
+        const terrainStatsOverlay =
+            document.getElementById("terrain-stats-overlay");
+
+        document.getElementById("open-world-settings")
+            .addEventListener("click", () => {
+                worldSettingsOverlay.hidden = false;
+            });
+
+        document.getElementById("open-terrain-stats")
+            .addEventListener("click", () => {
+                terrainStatsOverlay.hidden = false;
+            });
+
+        document.querySelectorAll(".close-overlay")
+            .forEach((button) => {
+                button.addEventListener("click", () => {
+                    button.closest(".overlay").hidden = true;
+                });
+            });
+
+        document.querySelectorAll(".overlay")
+            .forEach((overlay) => {
+                overlay.addEventListener("click", (event) => {
+                    if (event.target === overlay) {
+                        overlay.hidden = true;
+                    }
+                });
+            });
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") {
+                document.querySelectorAll(".overlay")
+                    .forEach((overlay) => {
+                        overlay.hidden = true;
+                    });
+            }
+        });
+    </script>
 </body>
 </html>
