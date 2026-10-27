@@ -1,5 +1,6 @@
 
 from dataclasses import dataclass, field
+from ecosim.config.loader import load_config
 
 from ecosim.simulation.clock import SimulationClock
 from ecosim.simulation.terrain import TerrainSimulation
@@ -8,9 +9,20 @@ from ecosim.simulation.weather import WeatherSimulation
 
 @dataclass
 class SimulationEngine:
-    clock: SimulationClock = field(default_factory=SimulationClock)
+    clock: SimulationClock = field(init=False)
     running: bool = False
     terrain: TerrainSimulation | None = None
+
+    def _create_clock(self) -> SimulationClock:
+        config = load_config()
+
+        return SimulationClock(
+            seasons=config["seasons"],
+            day_night=config["day_night"],
+        )
+
+    def __post_init__(self) -> None:
+        self.clock = self._create_clock()
 
     def start(self) -> None:
         self.running = True
@@ -19,7 +31,7 @@ class SimulationEngine:
         self.running = False
 
     def reset(self) -> None:
-        self.clock = SimulationClock()
+        self.clock = self._create_clock()
         self.running = False
 
     def load_world(

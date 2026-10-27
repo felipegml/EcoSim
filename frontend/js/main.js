@@ -42,6 +42,7 @@ const moistureButton = document.getElementById("toggle-moisture");
 
 const simulationSpeed = document.getElementById("simulation-speed");
 
+const dayNightIndicator = document.getElementById("day-night-indicator");
 const weatherStatus = document.getElementById("weather-status");
 
 const terrainColors = {
@@ -378,6 +379,12 @@ async function refreshSimulationState() {
 
         simulationDay.textContent = state.day;
         simulationYear.textContent = state.year;
+
+        if (dayNightIndicator) {
+            dayNightIndicator.textContent = state.is_daytime
+                ? "☀️ Day"
+                : "🌙 Night";
+        }
 
         simulationSeason.textContent =
             state.season.charAt(0).toUpperCase()

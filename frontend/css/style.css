@@ -186,6 +186,7 @@ label {
     align-items: center;
     justify-content: space-between;
     gap: 10px;
+    flex-wrap: nowrap;
 }
 
 .simulation-top h2 {
@@ -202,7 +203,7 @@ label {
 
 .simulation-clock {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(100px, 1.3fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr)) repeat(2, minmax(100px, 1.3fr));
     gap: 7px;
 }
 

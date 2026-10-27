@@ -1,23 +1,20 @@
 
-from dataclasses import dataclass
-
+from dataclasses import dataclass, field
 
 HOURS_PER_DAY = 24
-DAYS_PER_YEAR = 365
-
-SEASONS = (
-    ("spring", 91),
-    ("summer", 92),
-    ("autumn", 91),
-    ("winter", 91),
-)
-
 
 @dataclass
 class SimulationClock:
     hour: int = 0
     day: int = 1
     year: int = 1
+    seasons: dict = field(default_factory=lambda: {
+        "spring": 91,
+        "summer": 92,
+        "autumn": 91,
+        "winter": 91,
+    })
+    day_night: dict = field(default_factory=dict)
 
     def tick(self) -> None:
         """Advance the simulation by one hour."""
@@ -27,7 +24,7 @@ class SimulationClock:
             self.hour = 0
             self.day += 1
 
-        if self.day > DAYS_PER_YEAR:
+        if self.day > sum(self.seasons.values()):
             self.day = 1
             self.year += 1
 
@@ -35,7 +32,7 @@ class SimulationClock:
     def season(self) -> str:
         day_of_year = self.day
 
-        for season_name, duration in SEASONS:
+        for season_name, duration in self.seasons.items():
             if day_of_year <= duration:
                 return season_name
             day_of_year -= duration
@@ -44,7 +41,11 @@ class SimulationClock:
 
     @property
     def is_daytime(self) -> bool:
-        return 6 <= self.hour < 18
+        settings = self.day_night.get(self.season, {})
+        sunrise = settings.get("sunrise", 6)
+        sunset = settings.get("sunset", 18)
+
+        return sunrise <= self.hour < sunset
 
     def to_dict(self) -> dict:
         return {

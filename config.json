@@ -38,5 +38,29 @@
     "minimum_duration_ticks": 3,
     "maximum_duration_ticks": 12,
     "moisture_per_tick": 0.025
+  },
+  "seasons": {
+      "spring": 91,
+      "summer": 92,
+      "autumn": 91,
+      "winter": 91
+  },
+  "day_night": {
+      "spring": {
+          "sunrise": 6,
+          "sunset": 18
+      },
+      "summer": {
+          "sunrise": 6,
+          "sunset": 18
+      },
+      "autumn": {
+          "sunrise": 6,
+          "sunset": 18
+      },
+      "winter": {
+          "sunrise": 6,
+          "sunset": 18
+      }
   }
 }
