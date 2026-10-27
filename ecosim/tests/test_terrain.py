@@ -53,3 +53,81 @@ def test_engine_updates_terrain_on_tick():
 
     assert engine.clock.hour == 1
     assert engine.terrain.moisture[0][1] > initial_moisture
+
+
+def test_grass_health_decreases_when_dry():
+    terrain = TerrainSimulation(
+        tiles=[["grass"]],
+        settings={
+            "grass_moisture": 0.0,
+            "evaporation_rate": 0.0,
+            "grass": {
+                "minimum_moisture": 0.3,
+                "health_loss": 0.1,
+                "health_recovery": 0.01,
+            },
+        },
+    )
+
+    terrain.tick(season="spring")
+
+    assert terrain.grass_health[0][0] == 0.9
+
+
+def test_grass_health_recovers_when_moist():
+    terrain = TerrainSimulation(
+        tiles=[["grass"]],
+        settings={
+            "grass_moisture": 0.8,
+            "evaporation_rate": 0.0,
+            "grass": {
+                "minimum_moisture": 0.3,
+                "health_recovery": 0.02,
+            },
+        },
+    )
+
+    terrain.grass_health[0][0] = 0.5
+    terrain.tick(season="spring")
+
+    assert terrain.grass_health[0][0] > 0.5
+
+def test_dead_grass_becomes_dirt():
+    terrain = TerrainSimulation(
+        tiles=[["grass"]],
+        settings={
+            "grass_moisture": 0.0,
+            "evaporation_rate": 0.0,
+            "grass": {
+                "minimum_moisture": 0.3,
+                "health_loss": 0.1,
+            },
+        },
+    )
+
+    terrain.grass_health[0][0] = 0.1
+    terrain.tick(season="spring")
+
+    assert terrain.tiles[0][0] == "dirt"
+    assert terrain.grass_health[0][0] == 0.0
+
+
+def test_grass_spreads_to_moist_dirt():
+    terrain = TerrainSimulation(
+        tiles=[["grass", "dirt"]],
+        settings={
+            "evaporation_rate": 0.0,
+            "dirt_moisture": 0.8,
+            "grass": {
+                "minimum_moisture": 0.3,
+                "spread_moisture": 0.4,
+                "spread_source_health": 0.7,
+                "spread_chance": 1.0,
+            },
+        },
+    )
+
+    terrain.tick(season="spring")
+
+    assert terrain.tiles[0][1] == "grass"
+    assert terrain.grass_health[0][1] == 0.5

@@ -5,14 +5,22 @@
     "seed": null,
     "water_smoothing_passes": 10
   },
+  "simulation": {
+    "ticks_per_second": 1
+  },
   "terrain_percentages": {
     "grass": 45,
     "dirt": 25,
     "water": 15,
     "stone": 15
   },
-  "simulation": {
-    "ticks_per_second": 1
+  "grass": {
+    "minimum_moisture": 0.3,
+    "health_loss": 0.01,
+    "health_recovery": 0.02,
+    "winter_health_loss": 0.015,
+    "death_threshold": 0.001,
+    "spread_chance": 0.05
   },
   "terrain_simulation": {
     "moisture_diffusion": 0.05,

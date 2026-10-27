@@ -39,11 +39,13 @@ const simulationPauseButton = document.getElementById("simulation-pause");
 const simulationRestartButton = document.getElementById("simulation-restart");
 
 const moistureButton = document.getElementById("toggle-moisture");
+const grassHealthButton = document.getElementById("toggle-grass-health");
 
 const simulationSpeed = document.getElementById("simulation-speed");
 
 const dayNightIndicator = document.getElementById("day-night-indicator");
 const weatherStatus = document.getElementById("weather-status");
+
 
 const terrainColors = {
     grass: "#65a85c",
@@ -55,6 +57,8 @@ const terrainColors = {
 let moistureVisible = false;
 let moistureData = null;
 let currentWorld = null;
+let grassHealthVisible = false;
+let grassHealthData = null;
 
 async function loadConfigIntoControls() {
     const response = await fetch("/api/config");
@@ -100,14 +104,15 @@ async function loadWorld() {
     }
 }
 
-async function loadMoisture() {
+
+async function loadTerrainData() {
     const response = await fetch(
         "/api/terrain/moisture",
         { cache: "no-store" }
     );
 
     if (!response.ok) {
-        throw new Error("Could not load terrain moisture.");
+        throw new Error("Could not load terrain data.");
     }
 
     const data = await response.json();
@@ -116,20 +121,46 @@ async function loadMoisture() {
         throw new Error(data.error);
     }
 
+    // Update the world with the latest terrain tiles.
+    currentWorld = {
+        ...currentWorld,
+        width: data.width,
+        height: data.height,
+        tiles: data.tiles
+    };
+
+    // Update the terrain overlays.
     moistureData = data.moisture;
+    grassHealthData = data.grass_health;
+}
+
+async function loadGrassHealth() {
+    const response = await fetch("/api/terrain/moisture", {
+        cache: "no-store"
+    });
+
+    if (!response.ok) {
+        throw new Error("Could not load terrain data.");
+    }
+
+    const data = await response.json();
+
+    if (data.error) {
+        throw new Error(data.error);
+    }
+
+    grassHealthData = data.grass_health;
 }
 
 
 async function refreshMoistureView() {
-    if (!moistureVisible || !currentWorld) {
-        return;
-    }
+    if (!currentWorld) return;
 
     try {
-        await loadMoisture();
+        await loadTerrainData();
         drawWorld(currentWorld);
     } catch (error) {
-        console.error("Moisture refresh failed:", error);
+        console.error("Terrain refresh failed:", error);
     }
 }
 
@@ -142,31 +173,34 @@ function drawWorld(world) {
 
     world.tiles.forEach((row, y) => {
         row.forEach((terrain, x) => {
-            const terrainColor =
-                terrainColors[terrain] ?? "#ff00ff";
+            const terrainColor = terrainColors[terrain] ?? "#ff00ff";
+
+            let tileColor = terrainColor;
 
             if (
+                grassHealthVisible &&
+                terrain === "grass" &&
+                grassHealthData?.[y]?.[x] !== undefined
+            ) {
+                const health = grassHealthData[y][x];
+
+                // Healthy grass is bright green; weak grass is brownish.
+                const red = Math.round(139 * (1 - health));
+                const green = Math.round(168 * health + 90 * (1 - health));
+                const blue = Math.round(70 * health + 45 * (1 - health));
+
+                tileColor = `rgb(${red}, ${green}, ${blue})`;
+            } else if (
                 moistureVisible &&
                 moistureData?.[y]?.[x] !== undefined
             ) {
                 const moisture = moistureData[y][x];
+                const blue = Math.round(120 + moisture * 135);
 
-                // More moisture means a stronger blue overlay.
-                const alpha = moisture * 0.75;
-
-                context.fillStyle = terrainColor;
-                context.fillRect(
-                    x * tileSize,
-                    y * tileSize,
-                    tileSize,
-                    tileSize
-                );
-
-                context.fillStyle = `rgba(30, 120, 255, ${alpha})`;
-            } else {
-                context.fillStyle = terrainColor;
+                tileColor = `rgb(30, 120, ${blue})`;
             }
 
+            context.fillStyle = tileColor;
             context.fillRect(
                 x * tileSize,
                 y * tileSize,
@@ -447,7 +481,7 @@ simulationRestartButton.addEventListener("click", () => {
 moistureButton.addEventListener("click", async () => {
     try {
         if (!moistureVisible) {
-            await loadMoisture();
+            await loadTerrainData();
             moistureVisible = true;
             moistureButton.textContent = "🗺️";
             moistureButton.title = "Show terrain";
@@ -488,6 +522,34 @@ simulationSpeed.addEventListener("change", async () => {
     } catch (error) {
         console.error(error);
         worldStatus.textContent = "Could not update simulation speed";
+    }
+});
+
+grassHealthButton.addEventListener("click", async () => {
+    try {
+        if (!grassHealthVisible) {
+            await loadGrassHealth();
+            grassHealthVisible = true;
+
+            // Turn off the other overlay.
+            moistureVisible = false;
+            moistureButton.textContent = "💧";
+            moistureButton.title = "Show moisture";
+
+            grassHealthButton.textContent = "🌿";
+            grassHealthButton.title = "Show terrain";
+        } else {
+            grassHealthVisible = false;
+            grassHealthButton.textContent = "🌱";
+            grassHealthButton.title = "Show grass health";
+        }
+
+        if (currentWorld) {
+            drawWorld(currentWorld);
+        }
+    } catch (error) {
+        console.error(error);
+        worldStatus.textContent = "Could not load grass health";
     }
 });
 
