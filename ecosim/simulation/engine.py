@@ -2,6 +2,7 @@
 """Coordinate the clock, climate, weather, and terrain systems."""
 
 from dataclasses import dataclass, field
+import math
 
 from ecosim.config.loader import load_config
 from ecosim.simulation.clock import SimulationClock
@@ -22,19 +23,17 @@ class SimulationEngine:
 
     def __post_init__(self) -> None:
         """Load configuration and initialize simulation systems."""
-
         self.config = load_config()
         self._initialize_systems()
 
     def _initialize_systems(self) -> None:
         """Create the clock, climate, and weather systems."""
-
         self.clock = SimulationClock(
             seasons=self.config["seasons"],
             day_night=self.config["day_night"],
         )
 
-        simulation_seed = self.config["world"]["seed"]
+        simulation_seed = self.config["world"].get("seed")
 
         self.climate = ClimateSimulation(
             settings=self.config["climate"],
@@ -46,7 +45,6 @@ class SimulationEngine:
             seed=simulation_seed,
         )
 
-        # Initialize climate for the first simulated hour.
         self.climate.update(
             day=self.clock.day,
             hour=self.clock.hour,
@@ -64,10 +62,23 @@ class SimulationEngine:
 
     def reset(self) -> None:
         """Reset the clock and environmental systems."""
-
         self.running = False
         self.terrain = None
         self._initialize_systems()
+
+    def set_speed(self, ticks_per_second: float) -> None:
+        """Update the configured simulation tick rate."""
+        if (
+            isinstance(ticks_per_second, bool)
+            or not isinstance(ticks_per_second, (int, float))
+            or not math.isfinite(ticks_per_second)
+            or ticks_per_second <= 0
+        ):
+            raise ValueError("Simulation speed must be a finite number greater than zero.")
+
+        self.config["simulation"]["ticks_per_second"] = float(
+            ticks_per_second
+        )
 
     def load_world(
         self,
@@ -77,23 +88,32 @@ class SimulationEngine:
         seed: int | None = None,
     ) -> None:
         """Load terrain and optionally override weather settings."""
+        if not tiles or not tiles[0]:
+            raise ValueError("The terrain grid cannot be empty.")
+
+        width = len(tiles[0])
+
+        if any(len(row) != width for row in tiles):
+            raise ValueError("Every terrain row must have the same width.")
 
         effective_seed = (
-            self.config["world"]["seed"]
+            self.config["world"].get("seed")
             if seed is None
             else seed
         )
 
-        # Terrain requires the complete configuration because it
-        # reads terrain, grass, soil-climate, and seed settings.
+        effective_terrain_settings = (
+            self.config
+            if terrain_settings is None
+            else terrain_settings
+        )
+
         self.terrain = TerrainSimulation(
             tiles=tiles,
-            settings=self.config,
+            settings=effective_terrain_settings,
             seed=effective_seed,
         )
 
-        # Optional overrides allow callers to customize weather
-        # without changing the main configuration file.
         effective_weather_settings = (
             weather_settings
             if weather_settings is not None
@@ -105,7 +125,6 @@ class SimulationEngine:
             seed=effective_seed,
         )
 
-        # Keep the climate's random sequence reproducible as well.
         self.climate = ClimateSimulation(
             settings=self.config["climate"],
             seed=effective_seed,
@@ -119,8 +138,7 @@ class SimulationEngine:
         )
 
     def tick(self) -> dict:
-        """Advance one simulated hour."""
-
+        """Advance one simulated hour if the simulation is running."""
         if not self.running:
             return self.get_state()
 
@@ -128,7 +146,7 @@ class SimulationEngine:
         current_day = self.clock.day
         current_hour = self.clock.hour
 
-        # 1. Update weather for this hour.
+        # 1. Update weather for this simulated hour.
         self.weather.tick(current_season)
 
         # 2. Calculate the climate for this hour.
@@ -156,7 +174,6 @@ class SimulationEngine:
 
     def get_state(self) -> dict:
         """Return the combined simulation state."""
-
         state = {
             **self.clock.to_dict(),
             **self.climate.get_state(),
