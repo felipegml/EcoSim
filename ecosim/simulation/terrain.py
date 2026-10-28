@@ -1,203 +1,355 @@
 
-import random
+"""Terrain, soil moisture, grass health, and seed germination."""
 
+import random
 from dataclasses import dataclass, field
-from ecosim.simulation.weather import WeatherSimulation
 
 
 @dataclass
 class TerrainSimulation:
     tiles: list[list[str]]
-    settings: dict = field(default_factory=dict)
+    settings: dict
+    seed: int | None = None
+
     moisture: list[list[float]] = field(init=False)
     grass_health: list[list[float]] = field(init=False)
-    weather: WeatherSimulation = field(default_factory=WeatherSimulation)
     rng: random.Random = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        defaults = {
-            "water_moisture": 1.0,
-            "grass_moisture": 0.5,
-            "dirt_moisture": 0.25,
-            "stone_moisture": 0.0,
-        }
+        """Initialize terrain state from the world and configuration."""
 
-        values = {**defaults, **self.settings}
-        moisture_by_terrain = {
-            "water": values["water_moisture"],
-            "grass": values["grass_moisture"],
-            "dirt": values["dirt_moisture"],
-            "stone": values["stone_moisture"],
-        }
+        self.rng = random.Random(self.seed)
 
-        self.moisture = [
-            [moisture_by_terrain.get(tile, 0.0) for tile in row]
-            for row in self.tiles
+        terrain_settings = self.settings["terrain_simulation"]
+        grass_settings = self.settings["grass"]
+
+        self.moisture = []
+        self.grass_health = []
+
+        for row in self.tiles:
+            moisture_row = []
+            health_row = []
+
+            for tile in row:
+                if tile == "water":
+                    moisture_row.append(
+                        float(terrain_settings["water_moisture"])
+                    )
+                    health_row.append(0.0)
+                elif tile == "grass":
+                    moisture_row.append(
+                        float(terrain_settings["grass_moisture"])
+                    )
+                    health_row.append(
+                        float(grass_settings["initial_health"])
+                    )
+                elif tile == "dirt":
+                    moisture_row.append(
+                        float(terrain_settings["dirt_moisture"])
+                    )
+                    health_row.append(0.0)
+                elif tile == "stone":
+                    moisture_row.append(
+                        float(terrain_settings["stone_moisture"])
+                    )
+                    health_row.append(0.0)
+                else:
+                    raise ValueError(
+                        f"Unknown terrain type: {tile!r}"
+                    )
+
+            self.moisture.append(moisture_row)
+            self.grass_health.append(health_row)
+
+        self._validate_grid()
+
+    def _validate_grid(self) -> None:
+        """Ensure the terrain grid is rectangular and non-empty."""
+
+        if not self.tiles or not self.tiles[0]:
+            raise ValueError("The terrain grid cannot be empty.")
+
+        width = len(self.tiles[0])
+
+        if any(len(row) != width for row in self.tiles):
+            raise ValueError("All terrain rows must have equal width.")
+
+    def _neighbors(
+        self, x: int, y: int
+    ) -> list[tuple[int, int]]:
+        """Return the valid orthogonal neighbors of a tile."""
+
+        height = len(self.tiles)
+        width = len(self.tiles[0])
+
+        positions = (
+            (x - 1, y),
+            (x + 1, y),
+            (x, y - 1),
+            (x, y + 1),
+        )
+
+        return [
+            (nx, ny)
+            for nx, ny in positions
+            if 0 <= nx < width and 0 <= ny < height
         ]
-
-        self.grass_health = [
-            [1.0 if tile == "grass" else 0.0 for tile in row]
-            for row in self.tiles
-        ]
-
-        grass_settings = self.settings.get("grass", {})
-        self.rng = random.Random(grass_settings.get("random_seed"))
-
-    
-    def get_state(self) -> dict:
-        return {
-            "width": len(self.tiles[0]) if self.tiles else 0,
-            "height": len(self.tiles),
-            "tiles": self.tiles,
-            "moisture": self.moisture,
-            "grass_health": self.grass_health,
-        }
-
 
     def tick(
         self,
-        season: str = "spring",
+        season: str,
         rain_amount: float = 0.0,
+        temperature: float = 15.0,
+        humidity: float = 60.0,
+        wind_strength: float = 0.0,
     ) -> None:
+        """Advance moisture, grass, and seed processes by one hour."""
+
+        self._update_moisture(
+            season=season,
+            rain_amount=rain_amount,
+            temperature=temperature,
+            humidity=humidity,
+        )
+
+        self._update_grass(temperature)
+        self._disperse_and_germinate_seeds(
+            temperature=temperature,
+            wind_strength=wind_strength,
+        )
+
+    def _update_moisture(
+        self,
+        season: str,
+        rain_amount: float,
+        temperature: float,
+        humidity: float,
+    ) -> None:
+        """Apply diffusion, evaporation, and rain to the soil."""
+
+        terrain_settings = self.settings["terrain_simulation"]
+        climate_settings = self.settings["soil_climate"]
+
+        diffusion_rate = float(
+            terrain_settings["moisture_diffusion"]
+        )
+        evaporation_rate = float(
+            climate_settings["base_evaporation_rate"]
+        )
+        reference_temperature = float(
+            climate_settings["reference_temperature"]
+        )
+        temperature_sensitivity = float(
+            climate_settings["temperature_sensitivity"]
+        )
+        humidity_sensitivity = float(
+            climate_settings["humidity_sensitivity"]
+        )
+        minimum_evaporation_factor = float(
+            climate_settings["minimum_evaporation_factor"]
+        )
+        maximum_evaporation_factor = float(
+            climate_settings["maximum_evaporation_factor"]
+        )
+
         height = len(self.tiles)
-        width = len(self.tiles[0]) if height else 0
-
-        diffusion = self.settings.get("moisture_diffusion", 0.05)
-
-        grass_settings = self.settings.get("grass", {})
-        minimum_moisture = grass_settings.get("minimum_moisture", 0.3)
-        health_loss = grass_settings.get("health_loss", 0.01)
-        health_recovery = grass_settings.get("health_recovery", 0.005)
-        winter_health_loss = grass_settings.get("winter_health_loss", 0.015)
-
-        death_threshold = grass_settings.get("death_threshold", 0.0)
-        spread_chance = grass_settings.get("spread_chance", 0.05)
-        spread_moisture = grass_settings.get("spread_moisture", 0.4)
-        source_health = grass_settings.get("spread_source_health", 0.7)
-
-        seasonal_evaporation = self.settings.get(
-            "seasonal_evaporation", {}
-        )
-        evaporation = seasonal_evaporation.get(
-            season,
-            self.settings.get("evaporation_rate", 0.001),
-        )
-
-        # 1. Update soil moisture.
-        updated_moisture = [row[:] for row in self.moisture]
+        width = len(self.tiles[0])
+        updated = [row[:] for row in self.moisture]
 
         for y in range(height):
             for x in range(width):
-                terrain = self.tiles[y][x]
+                tile = self.tiles[y][x]
 
-                if terrain == "water":
-                    updated_moisture[y][x] = self.settings.get(
-                        "water_moisture", 1.0
-                    )
+                if tile in ("water", "stone"):
                     continue
 
-                if terrain == "stone":
-                    updated_moisture[y][x] = self.settings.get(
-                        "stone_moisture", 0.0
-                    )
-                    continue
+                neighbor_positions = self._neighbors(x, y)
 
-                neighbors = [
-                    self.moisture[ny][nx]
-                    for nx, ny in (
-                        (x - 1, y),
-                        (x + 1, y),
-                        (x, y - 1),
-                        (x, y + 1),
-                    )
-                    if 0 <= nx < width and 0 <= ny < height
-                ]
+                # Use the previous moisture grid so results do not
+                # depend on the order in which tiles are processed.
+                diffusion = 0.0
 
-                current = self.moisture[y][x]
+                for nx, ny in neighbor_positions:
+                    diffusion += (
+                        self.moisture[ny][nx]
+                        - self.moisture[y][x]
+                    ) * diffusion_rate
 
-                if neighbors:
-                    average = sum(neighbors) / len(neighbors)
-                    current += (average - current) * diffusion
+                temperature_factor = max(
+                    minimum_evaporation_factor,
+                    min(
+                        maximum_evaporation_factor,
+                        1.0
+                        + (
+                            temperature - reference_temperature
+                        ) * temperature_sensitivity,
+                    ),
+                )
 
-                current -= evaporation
+                humidity_factor = max(
+                    minimum_evaporation_factor,
+                    min(
+                        maximum_evaporation_factor,
+                        1.0
+                        - (
+                            humidity / 100.0
+                        ) * humidity_sensitivity,
+                    ),
+                )
 
-                if terrain in ("grass", "dirt"):
-                    current += rain_amount
+                evaporation = (
+                    evaporation_rate
+                    * temperature_factor
+                    * humidity_factor
+                )
 
-                updated_moisture[y][x] = max(0.0, min(1.0, current))
+                rain = max(0.0, rain_amount)
 
-        self.moisture = updated_moisture
+                updated[y][x] = max(
+                    0.0,
+                    min(
+                        1.0,
+                        self.moisture[y][x]
+                        + diffusion
+                        - evaporation
+                        + rain,
+                    ),
+                )
 
-        # 2. Update existing grass health.
-        health_updated = [row[:] for row in self.grass_health]
+        self.moisture = updated
 
-        for y in range(height):
-            for x in range(width):
-                if self.tiles[y][x] != "grass":
-                    health_updated[y][x] = 0.0
+    def _update_grass(self, temperature: float) -> None:
+        """Update grass health based on moisture and temperature."""
+
+        grass_settings = self.settings["grass"]
+
+        minimum_moisture = float(
+            grass_settings["minimum_moisture"]
+        )
+        health_loss = float(
+            grass_settings["health_loss"]
+        )
+        health_recovery = float(
+            grass_settings["health_recovery"]
+        )
+        death_threshold = float(
+            grass_settings["death_threshold"]
+        )
+
+        temperature_range = grass_settings["health_temperature_range"]
+        minimum_temperature = float(temperature_range[0])
+        maximum_temperature = float(temperature_range[1])
+
+        for y, row in enumerate(self.tiles):
+            for x, tile in enumerate(row):
+                if tile != "grass":
                     continue
 
                 moisture = self.moisture[y][x]
                 health = self.grass_health[y][x]
 
-                if season == "winter":
-                    health -= winter_health_loss
-                elif moisture < minimum_moisture:
+                temperature_suitable = (
+                    minimum_temperature
+                    <= temperature
+                    <= maximum_temperature
+                )
+
+                if (
+                    moisture < minimum_moisture
+                    or not temperature_suitable
+                ):
                     health -= health_loss
                 else:
                     health += health_recovery
 
                 health = max(0.0, min(1.0, health))
+                self.grass_health[y][x] = health
 
-                if health <= death_threshold + 1e-9:
-                    health = 0.0
+                if health <= death_threshold:
+                    self.tiles[y][x] = "dirt"
+                    self.grass_health[y][x] = 0.0
 
-                health_updated[y][x] = health
+    def _disperse_and_germinate_seeds(
+        self,
+        temperature: float,
+        wind_strength: float,
+    ) -> None:
+        """Allow external seeds to arrive and germinate on suitable dirt."""
 
-        # 3. Work on copies so new grass cannot spread again this tick.
-        updated_tiles = [row[:] for row in self.tiles]
-        updated_health = [row[:] for row in health_updated]
+        seed_settings = self.settings["seeds"]
+        grass_settings = self.settings["grass"]
 
-        # 4. Dead grass becomes dirt.
-        for y in range(height):
-            for x in range(width):
-                if (
-                    self.tiles[y][x] == "grass"
-                    and health_updated[y][x] <= death_threshold + 1e-9
-                ):
-                    updated_tiles[y][x] = "dirt"
-                    updated_health[y][x] = 0.0
+        base_arrival_chance = float(
+            seed_settings["base_arrival_chance"]
+        )
+        wind_effect = float(seed_settings["wind_effect"])
+        maximum_arrival_chance = float(
+            seed_settings["maximum_arrival_chance"]
+        )
 
-        # 5. Healthy grass spreads to neighboring, moist dirt.
-        for y in range(height):
-            for x in range(width):
-                if self.tiles[y][x] != "dirt":
+        germination_chance = float(
+            seed_settings["germination_chance"]
+        )
+        minimum_moisture = float(
+            seed_settings["minimum_germination_moisture"]
+        )
+
+        temperature_range = seed_settings[
+            "germination_temperature_range"
+        ]
+        minimum_temperature = float(temperature_range[0])
+        maximum_temperature = float(temperature_range[1])
+
+        if not (
+            minimum_temperature
+            <= temperature
+            <= maximum_temperature
+        ):
+            return
+
+        arrival_chance = min(
+            maximum_arrival_chance,
+            max(
+                0.0,
+                base_arrival_chance
+                + max(0.0, wind_strength) * wind_effect,
+            ),
+        )
+
+        for y, row in enumerate(self.tiles):
+            for x, tile in enumerate(row):
+                if tile != "dirt":
                     continue
 
-                if self.moisture[y][x] < spread_moisture:
+                if self.moisture[y][x] < minimum_moisture:
                     continue
 
-                neighbors = [
-                    (nx, ny)
-                    for nx, ny in (
-                        (x - 1, y),
-                        (x + 1, y),
-                        (x, y - 1),
-                        (x, y + 1),
-                    )
-                    if 0 <= nx < width and 0 <= ny < height
-                ]
+                # A seed source outside the world can introduce
+                # seeds anywhere, independently of nearby grass.
+                if self.rng.random() >= arrival_chance:
+                    continue
 
-                has_healthy_grass = any(
-                    self.tiles[ny][nx] == "grass"
-                    and health_updated[ny][nx] >= source_health
-                    for nx, ny in neighbors
+                if self.rng.random() >= germination_chance:
+                    continue
+
+                self.tiles[y][x] = "grass"
+                self.grass_health[y][x] = float(
+                    grass_settings["initial_health"]
                 )
 
-                if has_healthy_grass and self.rng.random() < spread_chance:
-                    updated_tiles[y][x] = "grass"
-                    updated_health[y][x] = 0.5
+    def get_state(self) -> dict:
+        """Return terrain state for the API and frontend."""
 
-        # 6. Save the updated world.
-        self.tiles = updated_tiles
-        self.grass_health = updated_health
+        return {
+            "width": len(self.tiles[0]),
+            "height": len(self.tiles),
+            "tiles": self.tiles,
+            "moisture": [
+                [round(value, 4) for value in row]
+                for row in self.moisture
+            ],
+            "grass_health": [
+                [round(value, 4) for value in row]
+                for row in self.grass_health
+            ],
+        }

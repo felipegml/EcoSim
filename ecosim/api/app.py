@@ -1,211 +1,154 @@
-import json
-import random
-import asyncio
 
-from pathlib import Path
-from contextlib import asynccontextmanager, suppress
+"""Expose EcoSim simulation controls through a FastAPI application."""
 
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
+from typing import Literal
+
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from ecosim.config.loader import load_config
-from ecosim.config.validator import validate_config
-from ecosim.world.generator import generate_world
 from ecosim.simulation.engine import SimulationEngine
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-FRONTEND_DIR = PROJECT_ROOT / "frontend"
 
-simulation_engine = SimulationEngine()
-simulation_speed = load_config().get(
-    "simulation", {}
-).get("ticks_per_second", 1)
-simulation_task = None
+app = FastAPI(
+    title="EcoSim API",
+    description="API for controlling and observing the EcoSim simulation.",
+    version="1.0.0",
+)
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    world_path = FRONTEND_DIR / "world.json"
-
-    if world_path.exists():
-        with world_path.open("r", encoding="utf-8") as file:
-            world_data = json.load(file)
-
-        config = load_config()
-        terrain_settings = config.get("terrain_simulation", {})
-
-        simulation_engine.load_world(
-            world_data["tiles"],
-            terrain_settings=terrain_settings,
-            weather_settings=terrain_settings.get("weather", {}),
-            seed=world_data.get("seed"),
-        )
-
-    task = asyncio.create_task(simulation_loop())
-
-    try:
-        yield
-    finally:
-        task.cancel()
-
-        with suppress(asyncio.CancelledError):
-            await task
+engine = SimulationEngine()
 
 
-app = FastAPI(title="EcoSim API", lifespan=lifespan)
+class WorldRequest(BaseModel):
+    """Request body used to load a terrain grid."""
 
-
-async def simulation_loop():
-    while True:
-        if simulation_engine.running:
-            await asyncio.sleep(1 / simulation_speed)
-
-            # A pause during the wait must prevent the next tick.
-            if simulation_engine.running:
-                simulation_engine.tick()
-        else:
-            await asyncio.sleep(0.1)
-
-
-class WorldSettings(BaseModel):
-    width: int = Field(default=100, ge=10, le=300)
-    height: int = Field(default=100, ge=10, le=300)
-    seed: int | None = None
-    water_smoothing_passes: int = Field(default=10, ge=1, le=30)
-    terrain_percentages: dict[str, float] = Field(
-        default_factory=lambda: {
-            "grass": 45,
-            "dirt": 25,
-            "water": 15,
-            "stone": 15,
-        }
+    tiles: list[list[Literal["grass", "dirt", "water", "stone"]]] = Field(
+        min_length=1,
+        description="A non-empty rectangular grid of terrain tiles.",
     )
 
 
-class SimulationSpeed(BaseModel):
-    ticks_per_second: float = Field(gt=0, le=100)
+class SpeedRequest(BaseModel):
+    """Request body used to configure simulation speed."""
+
+    ticks_per_second: float = Field(gt=0)
 
 
 @app.get("/api/config")
 def get_config() -> dict:
-    return load_config()
-
-
-@app.post("/api/world")
-def create_world(settings: WorldSettings) -> dict:
-    config = load_config()
-
-    # Apply the settings sent by the browser.
-    seed = settings.seed
-    if seed is None:
-        seed = random.SystemRandom().randrange(0, 2**32)
-
-    config["world"]["width"] = settings.width
-    config["world"]["height"] = settings.height
-    config["world"]["seed"] = seed
-    config["world"]["water_smoothing_passes"] = (
-        settings.water_smoothing_passes
-    )
-    config["terrain_percentages"] = settings.terrain_percentages
-
-    validate_config(config)
-    world = generate_world(config)
-
-    terrain_settings = config.get("terrain_simulation", {})
-
-    simulation_engine.pause()
-    simulation_engine.load_world(
-        world,
-        terrain_settings=terrain_settings,
-        weather_settings=terrain_settings.get("weather", {}),
-        seed=seed,
-    )
-    simulation_engine.reset()
-
-    world_data = {
-        "width": len(world[0]),
-        "height": len(world),
-        "seed": seed,
-        "tiles": world,
-    }
-
-    output_path = FRONTEND_DIR / "world.json"
-    with output_path.open("w", encoding="utf-8") as file:
-        json.dump(world_data, file)
-
-    return world_data
-
-
-async def simulation_loop():
-    while True:
-        if simulation_engine.running:
-            current_speed = simulation_speed
-            await asyncio.sleep(1 / current_speed)
-
-            if simulation_engine.running:
-                simulation_engine.tick()
-        else:
-            await asyncio.sleep(0.1)
+    """Return the current simulation configuration."""
+    return engine.config
 
 
 @app.get("/api/simulation")
-def get_simulation_state():
-    return simulation_engine.get_state()
+def get_simulation_state() -> dict:
+    """Return the current state of all simulation systems."""
+    return engine.get_state()
 
 
 @app.post("/api/simulation/start")
-def start_simulation():
-    simulation_engine.start()
-    return simulation_engine.get_state()
+def start_simulation() -> dict:
+    """Start or resume the simulation."""
+    engine.start()
+    return engine.get_state()
 
 
 @app.post("/api/simulation/pause")
-def pause_simulation():
-    simulation_engine.pause()
-    return simulation_engine.get_state()
+def pause_simulation() -> dict:
+    """Pause the simulation."""
+    engine.pause()
+    return engine.get_state()
 
 
 @app.post("/api/simulation/restart")
-def restart_simulation():
-    global simulation_speed
+def restart_simulation() -> dict:
+    """Reset the simulation clock and environmental systems."""
+    engine.reset()
+    return engine.get_state()
 
-    config = load_config()
-    validate_config(config)
 
-    simulation_speed = config.get(
-        "simulation", {}
-    ).get("ticks_per_second", 1)
+@app.post("/api/simulation/tick")
+def advance_simulation() -> dict:
+    """Advance by one simulated hour when the engine is running."""
+    return engine.tick()
 
-    simulation_engine.reset()
 
-    return {
-        **simulation_engine.get_state(),
-        "ticks_per_second": simulation_speed,
-    }
+@app.post("/api/world")
+def load_world(request: WorldRequest) -> dict:
+    """Load a supplied terrain grid into the simulation."""
+
+    if not request.tiles or not request.tiles[0]:
+        raise HTTPException(
+            status_code=422,
+            detail="The terrain grid cannot be empty.",
+        )
+
+    width = len(request.tiles[0])
+
+    if any(len(row) != width for row in request.tiles):
+        raise HTTPException(
+            status_code=422,
+            detail="Every terrain row must have the same width.",
+        )
+
+    try:
+        engine.load_world(tiles=request.tiles)
+    except (ValueError, KeyError) as error:
+        raise HTTPException(
+            status_code=422,
+            detail=str(error),
+        ) from error
+
+    return engine.get_state()
+
+
+@app.get("/api/world")
+def get_world() -> dict:
+    """Return the loaded world and its terrain data."""
+
+    state = engine.get_state()
+
+    if not state["world_loaded"]:
+        raise HTTPException(
+            status_code=404,
+            detail="No world is loaded. Send a terrain grid to POST /api/world.",
+        )
+
+    return state["terrain"]
 
 
 @app.get("/api/terrain/moisture")
-def get_terrain_moisture():
-    if simulation_engine.terrain is None:
-        return {"error": "No world loaded"}
+def get_soil_moisture() -> dict:
+    """Return the current soil moisture grid."""
 
-    return simulation_engine.terrain.get_state()
+    state = engine.get_state()
 
-
-@app.post("/api/simulation/speed")
-def set_simulation_speed(settings: SimulationSpeed):
-    global simulation_speed
-
-    simulation_speed = settings.ticks_per_second
+    if not state["world_loaded"]:
+        raise HTTPException(
+            status_code=404,
+            detail="No world is loaded.",
+        )
 
     return {
-        "ticks_per_second": simulation_speed
+        "width": state["terrain"]["width"],
+        "height": state["terrain"]["height"],
+        "moisture": state["terrain"]["moisture"],
     }
 
 
-app.mount(
-    "/",
-    StaticFiles(directory=FRONTEND_DIR, html=True),
-    name="frontend",
-)
+@app.post("/api/simulation/speed")
+def set_simulation_speed(request: SpeedRequest) -> dict:
+    """Update the configured tick rate for the API client."""
+
+    engine.config["simulation"]["ticks_per_second"] = (
+        request.ticks_per_second
+    )
+
+    return {
+        "ticks_per_second": engine.config["simulation"]["ticks_per_second"]
+    }
+
+
+@app.get("/health")
+def health_check() -> dict:
+    """Report whether the API process is responding."""
+    return {"status": "ok"}

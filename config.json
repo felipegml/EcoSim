@@ -1,3 +1,4 @@
+
 {
   "world": {
     "width": 100,
@@ -14,27 +15,59 @@
     "water": 15,
     "stone": 15
   },
-  "grass": {
-    "minimum_moisture": 0.3,
-    "health_loss": 0.01,
-    "health_recovery": 0.02,
-    "winter_health_loss": 0.015,
-    "death_threshold": 0.001,
-    "spread_chance": 0.05
+  "seasons": {
+    "spring": 91,
+    "summer": 92,
+    "autumn": 91,
+    "winter": 91
   },
-  "terrain_simulation": {
-    "moisture_diffusion": 0.05,
-    "evaporation_rate": 0.001,
-    "water_moisture": 1.0,
-    "grass_moisture": 0.5,
-    "dirt_moisture": 0.25,
-    "stone_moisture": 0.0
+  "day_night": {
+    "spring": {
+      "sunrise": 6,
+      "sunset": 18
+    },
+    "summer": {
+      "sunrise": 6,
+      "sunset": 18
+    },
+    "autumn": {
+      "sunrise": 6,
+      "sunset": 18
+    },
+    "winter": {
+      "sunrise": 6,
+      "sunset": 18
+    }
   },
-  "seasonal_evaporation": {
-    "spring": 0.0005,
-    "summer": 0.003,
-    "autumn": 0.001,
-    "winter": 0.0002
+  "climate": {
+    "temperature_humidity_swing": 18.0,
+    "rain_humidity_boost": 12.0,
+    "seasons": {
+      "spring": {
+        "temperature_min_range": [5.0, 12.0],
+        "temperature_max_range": [14.0, 23.0],
+        "humidity_range": [45.0, 75.0],
+        "temperature_minimum_hour": 6
+      },
+      "summer": {
+        "temperature_min_range": [14.0, 21.0],
+        "temperature_max_range": [25.0, 35.0],
+        "humidity_range": [30.0, 60.0],
+        "temperature_minimum_hour": 6
+      },
+      "autumn": {
+        "temperature_min_range": [7.0, 14.0],
+        "temperature_max_range": [15.0, 25.0],
+        "humidity_range": [50.0, 80.0],
+        "temperature_minimum_hour": 7
+      },
+      "winter": {
+        "temperature_min_range": [-2.0, 7.0],
+        "temperature_max_range": [8.0, 14.0],
+        "humidity_range": [55.0, 90.0],
+        "temperature_minimum_hour": 7
+      }
+    }
   },
   "weather": {
     "rain_chance_per_tick": {
@@ -45,30 +78,56 @@
     },
     "minimum_duration_ticks": 3,
     "maximum_duration_ticks": 12,
-    "moisture_per_tick": 0.025
-  },
-  "seasons": {
-      "spring": 91,
-      "summer": 92,
-      "autumn": 91,
-      "winter": 91
-  },
-  "day_night": {
-      "spring": {
-          "sunrise": 6,
-          "sunset": 18
-      },
-      "summer": {
-          "sunrise": 6,
-          "sunset": 18
-      },
-      "autumn": {
-          "sunrise": 6,
-          "sunset": 18
-      },
-      "winter": {
-          "sunrise": 6,
-          "sunset": 18
+    "moisture_per_tick": 0.025,
+    "rain_intensity_multipliers": {
+      "light": 0.5,
+      "moderate": 1.0,
+      "heavy": 1.5
+    },
+    "wind": {
+      "initial_strength": 0.25,
+      "default_strength": 0.3,
+      "hourly_variation": 0.12,
+      "minimum_strength": 0.0,
+      "maximum_strength": 1.0,
+      "adaptation_rate": 0.15,
+      "seasonal_strength": {
+        "spring": 0.4,
+        "summer": 0.25,
+        "autumn": 0.55,
+        "winter": 0.65
       }
+    }
+  },
+  "terrain_simulation": {
+    "moisture_diffusion": 0.05,
+    "water_moisture": 1.0,
+    "grass_moisture": 0.5,
+    "dirt_moisture": 0.25,
+    "stone_moisture": 0.0
+  },
+  "soil_climate": {
+    "base_evaporation_rate": 0.001,
+    "reference_temperature": 15.0,
+    "temperature_sensitivity": 0.025,
+    "humidity_sensitivity": 0.7,
+    "minimum_evaporation_factor": 0.2,
+    "maximum_evaporation_factor": 2.5
+  },
+  "grass": {
+    "minimum_moisture": 0.3,
+    "health_loss": 0.01,
+    "health_recovery": 0.02,
+    "death_threshold": 0.001,
+    "initial_health": 1.0,
+    "health_temperature_range": [-5.0, 35.0]
+  },
+  "seeds": {
+    "base_arrival_chance": 0.002,
+    "wind_effect": 0.03,
+    "maximum_arrival_chance": 0.05,
+    "germination_chance": 0.25,
+    "minimum_germination_moisture": 0.4,
+    "germination_temperature_range": [5.0, 30.0]
   }
 }
