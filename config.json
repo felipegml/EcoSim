@@ -44,8 +44,8 @@
     "rain_humidity_boost": 12.0,
     "seasons": {
       "spring": {
-        "temperature_min_range": [5.0, 12.0],
-        "temperature_max_range": [14.0, 23.0],
+        "temperature_min_range": [10.0, 15.0],
+        "temperature_max_range": [17.0, 25.0],
         "humidity_range": [45.0, 75.0],
         "temperature_minimum_hour": 6
       },

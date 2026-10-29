@@ -1,6 +1,11 @@
 
 """Expose EcoSim simulation controls through a FastAPI application."""
 
+from pathlib import Path
+
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
 import asyncio
 import math
 from contextlib import asynccontextmanager
@@ -60,6 +65,24 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
+
+app.mount(
+    "/css",
+    StaticFiles(directory=FRONTEND_DIR / "css"),
+    name="css",
+)
+
+app.mount(
+    "/js",
+    StaticFiles(directory=FRONTEND_DIR / "js"),
+    name="js",
+)
+
+
+@app.get("/", include_in_schema=False)
+def serve_frontend():
+    return FileResponse(FRONTEND_DIR / "index.html")
 
 TerrainType = Literal["grass", "dirt", "water", "stone"]
 
@@ -245,7 +268,7 @@ def get_world() -> dict:
 
 @app.get("/api/terrain/moisture")
 def get_soil_moisture() -> dict:
-    """Return soil moisture and grass health when available."""
+    """Return live terrain tiles, soil moisture, and grass health."""
     state = engine.get_state()
 
     if not state["world_loaded"]:
@@ -259,6 +282,7 @@ def get_soil_moisture() -> dict:
     result = {
         "width": terrain_state["width"],
         "height": terrain_state["height"],
+        "tiles": terrain_state["tiles"],  # Add this line
         "moisture": terrain_state["moisture"],
     }
 

@@ -8,7 +8,7 @@ mapContainer.style.position = "relative";
 const rainOverlay = document.createElement("div");
 rainOverlay.className = "rain-overlay";
 rainOverlay.hidden = true;
-
+rainOverlay.setAttribute("aria-hidden", "true");
 mapContainer.appendChild(rainOverlay);
 
 const worldSize = document.getElementById("world-size");
@@ -40,12 +40,14 @@ const simulationRestartButton = document.getElementById("simulation-restart");
 
 const moistureButton = document.getElementById("toggle-moisture");
 const grassHealthButton = document.getElementById("toggle-grass-health");
-
 const simulationSpeed = document.getElementById("simulation-speed");
 
 const dayNightIndicator = document.getElementById("day-night-indicator");
 const weatherStatus = document.getElementById("weather-status");
 
+const temperatureStatus = document.getElementById("temperature-status");
+
+const humidityStatus = document.getElementById("humidity-status");
 
 const terrainColors = {
     grass: "#65a85c",
@@ -54,14 +56,28 @@ const terrainColors = {
     stone: "#929a9a",
 };
 
+const TILE_SIZE = 20;
+const TERRAIN_REFRESH_INTERVAL = 1000;
+const SIMULATION_REFRESH_INTERVAL = 1000;
+
 let moistureVisible = false;
 let moistureData = null;
 let currentWorld = null;
 let grassHealthVisible = false;
 let grassHealthData = null;
 
+let terrainRefreshInProgress = false;
+let simulationRefreshInProgress = false;
+let lastTerrainErrorAt = 0;
+
+/* -------------------------------------------------------
+   Configuration and world loading
+------------------------------------------------------- */
+
 async function loadConfigIntoControls() {
-    const response = await fetch("/api/config");
+    const response = await fetch("/api/config", {
+        cache: "no-store",
+    });
 
     if (!response.ok) {
         throw new Error("Could not load configuration.");
@@ -84,7 +100,9 @@ async function loadConfigIntoControls() {
 
 async function loadWorld() {
     try {
-        const response = await fetch("/world.json");
+        const response = await fetch("/world.json", {
+            cache: "no-store",
+        });
 
         if (!response.ok) {
             throw new Error("Could not load world.json");
@@ -92,10 +110,15 @@ async function loadWorld() {
 
         const world = await response.json();
 
+        if (!isValidWorld(world)) {
+            throw new Error("The world data has an invalid format.");
+        }
+
         currentWorld = world;
-        drawWorld(world);
-        renderTerrainStats(world);
-        updateGenerationSummary(world);
+        drawWorld(currentWorld);
+        renderTerrainStats(currentWorld);
+        updateGenerationSummary(currentWorld);
+
         worldSize.textContent = `${world.width} × ${world.height}`;
         worldStatus.textContent = "World loaded";
     } catch (error) {
@@ -104,39 +127,27 @@ async function loadWorld() {
     }
 }
 
-
-async function loadTerrainData() {
-    const response = await fetch(
-        "/api/terrain/moisture",
-        { cache: "no-store" }
+function isValidWorld(world) {
+    return Boolean(
+        world &&
+        Number.isFinite(world.width) &&
+        Number.isFinite(world.height) &&
+        Array.isArray(world.tiles) &&
+        world.tiles.length > 0 &&
+        world.tiles.every(Array.isArray)
     );
-
-    if (!response.ok) {
-        throw new Error("Could not load terrain data.");
-    }
-
-    const data = await response.json();
-
-    if (data.error) {
-        throw new Error(data.error);
-    }
-
-    // Update the world with the latest terrain tiles.
-    currentWorld = {
-        ...currentWorld,
-        width: data.width,
-        height: data.height,
-        tiles: data.tiles
-    };
-
-    // Update the terrain overlays.
-    moistureData = data.moisture;
-    grassHealthData = data.grass_health;
 }
 
-async function loadGrassHealth() {
+/* -------------------------------------------------------
+   Terrain data
+
+   Keep existing world tiles unless the API actually
+   provides a valid replacement tile grid.
+------------------------------------------------------- */
+
+async function loadTerrainData() {
     const response = await fetch("/api/terrain/moisture", {
-        cache: "no-store"
+        cache: "no-store",
     });
 
     if (!response.ok) {
@@ -149,31 +160,106 @@ async function loadGrassHealth() {
         throw new Error(data.error);
     }
 
-    grassHealthData = data.grass_health;
+    if (!currentWorld) {
+        throw new Error("The world has not loaded yet.");
+    }
+
+    // Update the actual terrain only when valid tiles
+    // are included in the API response.
+    if (
+        Array.isArray(data.tiles) &&
+        data.tiles.length > 0 &&
+        data.tiles.every(Array.isArray)
+    ) {
+        currentWorld = {
+            ...currentWorld,
+            width: Number.isFinite(data.width)
+                ? data.width
+                : data.tiles[0].length,
+            height: Number.isFinite(data.height)
+                ? data.height
+                : data.tiles.length,
+            tiles: data.tiles,
+        };
+    }
+
+    if (data.moisture !== undefined) {
+        moistureData = data.moisture;
+    }
+
+    if (data.grass_health !== undefined) {
+        grassHealthData = data.grass_health;
+    }
+
+    return data;
+}
+
+async function loadGrassHealth() {
+    // The original application obtains grass health from
+    // the same endpoint as moisture.
+    await loadTerrainData();
 }
 
 
 async function refreshMoistureView() {
-    if (!currentWorld) return;
+    if (!currentWorld || terrainRefreshInProgress) {
+        return;
+    }
+
+    terrainRefreshInProgress = true;
 
     try {
+        const previousTiles = JSON.stringify(currentWorld.tiles);
+
         await loadTerrainData();
+
         drawWorld(currentWorld);
+
+        const updatedTiles = JSON.stringify(currentWorld.tiles);
+
+        if (updatedTiles !== previousTiles) {
+            renderTerrainStats(currentWorld);
+            updateGenerationSummary(currentWorld);
+            worldSize.textContent =
+                `${currentWorld.width} × ${currentWorld.height}`;
+        }
     } catch (error) {
-        console.error("Terrain refresh failed:", error);
+        const now = Date.now();
+
+        if (now - lastTerrainErrorAt >= 5000) {
+            console.error("Terrain refresh failed:", error);
+            lastTerrainErrorAt = now;
+        }
+    } finally {
+        terrainRefreshInProgress = false;
     }
 }
 
+/* -------------------------------------------------------
+   Map drawing and rain overlay positioning
+------------------------------------------------------- */
+
+function positionRainOverlay() {
+    // Align the rain effect with the canvas itself,
+    // not the entire map container.
+    rainOverlay.style.left = `${canvas.offsetLeft}px`;
+    rainOverlay.style.top = `${canvas.offsetTop}px`;
+    rainOverlay.style.width = `${canvas.width}px`;
+    rainOverlay.style.height = `${canvas.height}px`;
+}
 
 function drawWorld(world) {
-    const tileSize = 20;
+    if (!isValidWorld(world)) {
+        return;
+    }
 
-    canvas.width = world.width * tileSize;
-    canvas.height = world.height * tileSize;
+    canvas.width = world.width * TILE_SIZE;
+    canvas.height = world.height * TILE_SIZE;
 
     world.tiles.forEach((row, y) => {
         row.forEach((terrain, x) => {
-            const terrainColor = terrainColors[terrain] ?? "#ff00ff";
+            const terrainColor =
+                terrainColors[terrain] ?? "#ff00ff";
 
             let tileColor = terrainColor;
 
@@ -182,42 +268,64 @@ function drawWorld(world) {
                 terrain === "grass" &&
                 grassHealthData?.[y]?.[x] !== undefined
             ) {
-                const health = grassHealthData[y][x];
+                const rawHealth = Number(grassHealthData[y][x]);
+                const health = Math.max(
+                    0,
+                    Math.min(1, Number.isFinite(rawHealth) ? rawHealth : 0)
+                );
 
-                // Healthy grass is bright green; weak grass is brownish.
+                // Healthy grass is bright green; weak grass
+                // becomes brownish.
                 const red = Math.round(139 * (1 - health));
-                const green = Math.round(168 * health + 90 * (1 - health));
-                const blue = Math.round(70 * health + 45 * (1 - health));
+                const green = Math.round(
+                    168 * health + 90 * (1 - health)
+                );
+                const blue = Math.round(
+                    70 * health + 45 * (1 - health)
+                );
 
                 tileColor = `rgb(${red}, ${green}, ${blue})`;
             } else if (
                 moistureVisible &&
                 moistureData?.[y]?.[x] !== undefined
             ) {
-                const moisture = moistureData[y][x];
-                const blue = Math.round(120 + moisture * 135);
+                const rawMoisture = Number(moistureData[y][x]);
+                const moisture = Math.max(
+                    0,
+                    Math.min(
+                        1,
+                        Number.isFinite(rawMoisture) ? rawMoisture : 0
+                    )
+                );
 
+                const blue = Math.round(120 + moisture * 135);
                 tileColor = `rgb(30, 120, ${blue})`;
             }
 
             context.fillStyle = tileColor;
             context.fillRect(
-                x * tileSize,
-                y * tileSize,
-                tileSize,
-                tileSize
+                x * TILE_SIZE,
+                y * TILE_SIZE,
+                TILE_SIZE,
+                TILE_SIZE
             );
 
             context.strokeStyle = "rgba(0, 0, 0, 0.12)";
             context.strokeRect(
-                x * tileSize,
-                y * tileSize,
-                tileSize,
-                tileSize
+                x * TILE_SIZE,
+                y * TILE_SIZE,
+                TILE_SIZE,
+                TILE_SIZE
             );
         });
     });
+
+    positionRainOverlay();
 }
+
+/* -------------------------------------------------------
+   Terrain settings and statistics
+------------------------------------------------------- */
 
 function updateDirtPercentage() {
     const water = Number(waterInput.value);
@@ -232,6 +340,10 @@ function updateDirtPercentage() {
 });
 
 function renderTerrainStats(world) {
+    if (!isValidWorld(world)) {
+        return;
+    }
+
     const counts = Object.fromEntries(
         Object.keys(terrainColors).map(terrain => [terrain, 0])
     );
@@ -249,7 +361,7 @@ function renderTerrainStats(world) {
 
     for (const [terrain, color] of Object.entries(terrainColors)) {
         const count = counts[terrain];
-        const percentage = (count / total) * 100;
+        const percentage = total > 0 ? (count / total) * 100 : 0;
 
         const card = document.createElement("div");
         card.className = "terrain-stat";
@@ -272,7 +384,8 @@ function renderTerrainStats(world) {
 
         const percentElement = document.createElement("div");
         percentElement.className = "stat-percent";
-        percentElement.textContent = `${percentage.toFixed(1)}% of world`;
+        percentElement.textContent =
+            `${percentage.toFixed(1)}% of world`;
 
         card.append(label, countElement, percentElement);
         terrainStats.append(card);
@@ -280,6 +393,10 @@ function renderTerrainStats(world) {
 }
 
 function updateGenerationSummary(world) {
+    if (!isValidWorld(world)) {
+        return;
+    }
+
     const totalTiles = world.width * world.height;
     const counts = {};
 
@@ -299,6 +416,10 @@ function updateGenerationSummary(world) {
     generationSummary.textContent =
         `Seed: ${world.seed} | Tiles: ${totalTiles.toLocaleString()} | ${distribution}`;
 }
+
+/* -------------------------------------------------------
+   World generation
+------------------------------------------------------- */
 
 async function generateNewWorld() {
     generateButton.disabled = true;
@@ -324,8 +445,10 @@ async function generateNewWorld() {
         );
 
         const percentagesValid = [water, grass, stone].every(
-            value => Number.isFinite(value) &&
-                     value >= 0 && value <= 100
+            value =>
+                Number.isFinite(value) &&
+                value >= 0 &&
+                value <= 100
         );
 
         const dirt = 100 - water - grass - stone;
@@ -379,14 +502,20 @@ async function generateNewWorld() {
             );
         }
 
+        if (!isValidWorld(result)) {
+            throw new Error("The generated world data is invalid.");
+        }
+
         currentWorld = result;
         moistureData = null;
+        grassHealthData = null;
 
-        drawWorld(result);
-        renderTerrainStats(result);
-        updateGenerationSummary(result);
+        drawWorld(currentWorld);
+        renderTerrainStats(currentWorld);
+        updateGenerationSummary(currentWorld);
 
-        worldSize.textContent = `${result.width} × ${result.height}`;
+        worldSize.textContent =
+            `${result.width} × ${result.height}`;
         worldStatus.textContent = "World generated";
         seedInput.value = result.seed;
     } catch (error) {
@@ -398,9 +527,21 @@ async function generateNewWorld() {
     }
 }
 
+/* -------------------------------------------------------
+   Simulation status and weather
+------------------------------------------------------- */
+
 async function refreshSimulationState() {
+    if (simulationRefreshInProgress) {
+        return;
+    }
+
+    simulationRefreshInProgress = true;
+
     try {
-        const response = await fetch("/api/simulation");
+        const response = await fetch("/api/simulation", {
+            cache: "no-store",
+        });
 
         if (!response.ok) {
             throw new Error("Could not load simulation state.");
@@ -421,8 +562,8 @@ async function refreshSimulationState() {
         }
 
         simulationSeason.textContent =
-            state.season.charAt(0).toUpperCase()
-            + state.season.slice(1);
+            state.season.charAt(0).toUpperCase() +
+            state.season.slice(1);
 
         simulationStatus.textContent =
             state.running ? "Running" : "Paused";
@@ -434,11 +575,34 @@ async function refreshSimulationState() {
             weatherStatus.textContent = "☀ Clear";
         }
 
+        if (temperatureStatus) {
+            const temperature = Number(state.temperature);
+
+            temperatureStatus.textContent =
+                Number.isFinite(temperature)
+                    ? `${temperature.toFixed(1)} °C`
+                    : "-- °C";
+        }
+
+        if (humidityStatus) {
+            const humidity = Number(state.humidity);
+
+            humidityStatus.textContent =
+                Number.isFinite(humidity)
+                    ? `${Math.round(humidity)}%`
+                    : "--%";
+        }
+
         rainOverlay.hidden = !state.is_raining;
 
+        if (state.is_raining) {
+            positionRainOverlay();
+        }
     } catch (error) {
         simulationStatus.textContent = "Connection error";
         console.error(error);
+    } finally {
+        simulationRefreshInProgress = false;
     }
 }
 
@@ -454,13 +618,30 @@ async function controlSimulation(action) {
         }
 
         await refreshSimulationState();
+
+        // Restarting may reset the simulated terrain.
+        if (action === "restart") {
+            await loadWorld();
+            moistureData = null;
+            grassHealthData = null;
+
+            if (moistureVisible || grassHealthVisible) {
+                await loadTerrainData();
+                drawWorld(currentWorld);
+            }
+        }
     } catch (error) {
         simulationStatus.textContent = "Connection error";
         console.error(error);
     }
 }
 
+/* -------------------------------------------------------
+   Event listeners
+------------------------------------------------------- */
+
 generateButton.addEventListener("click", generateNewWorld);
+
 randomWorldButton.addEventListener("click", () => {
     seedInput.value = "";
     generateNewWorld();
@@ -482,11 +663,18 @@ moistureButton.addEventListener("click", async () => {
     try {
         if (!moistureVisible) {
             await loadTerrainData();
+
             moistureVisible = true;
+            grassHealthVisible = false;
+
             moistureButton.textContent = "🗺️";
             moistureButton.title = "Show terrain";
+
+            grassHealthButton.textContent = "🌱";
+            grassHealthButton.title = "Show grass health";
         } else {
             moistureVisible = false;
+
             moistureButton.textContent = "💧";
             moistureButton.title = "Show moisture";
         }
@@ -515,10 +703,6 @@ simulationSpeed.addEventListener("change", async () => {
         if (!response.ok) {
             throw new Error("Could not update simulation speed.");
         }
-
-        //const data = await response.json();
-        //console.log("Speed API response:", data);
-
     } catch (error) {
         console.error(error);
         worldStatus.textContent = "Could not update simulation speed";
@@ -529,10 +713,10 @@ grassHealthButton.addEventListener("click", async () => {
     try {
         if (!grassHealthVisible) {
             await loadGrassHealth();
-            grassHealthVisible = true;
 
-            // Turn off the other overlay.
+            grassHealthVisible = true;
             moistureVisible = false;
+
             moistureButton.textContent = "💧";
             moistureButton.title = "Show moisture";
 
@@ -540,6 +724,7 @@ grassHealthButton.addEventListener("click", async () => {
             grassHealthButton.title = "Show terrain";
         } else {
             grassHealthVisible = false;
+
             grassHealthButton.textContent = "🌱";
             grassHealthButton.title = "Show grass health";
         }
@@ -553,15 +738,29 @@ grassHealthButton.addEventListener("click", async () => {
     }
 });
 
+/* -------------------------------------------------------
+   Initialization
+------------------------------------------------------- */
+
 async function initializeFrontend() {
     try {
         await loadConfigIntoControls();
         await loadWorld();
-
         await refreshSimulationState();
 
-        setInterval(refreshSimulationState, 1000);
-        setInterval(refreshMoistureView, 1000);
+        setInterval(
+            refreshSimulationState,
+            SIMULATION_REFRESH_INTERVAL
+        );
+
+        setInterval(
+            refreshMoistureView,
+            TERRAIN_REFRESH_INTERVAL
+        );
+
+        // Keep rain aligned if the viewport or layout changes.
+        window.addEventListener("resize", positionRainOverlay);
+        mapContainer.addEventListener("scroll", positionRainOverlay);
     } catch (error) {
         worldStatus.textContent = "Could not initialize EcoSim";
         console.error(error);
