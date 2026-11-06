@@ -9,6 +9,18 @@ This document explains the intended logic and current design. The
 project is still evolving, so check the source code and `config.json`
 for the exact current settings and API routes.
 
+## Intended audience
+
+EcoSimPy is a personal project for experimenting with ecosystem
+simulation and testing approaches to integrating it with a game engine
+in the future.
+
+## Built with
+
+-   **Python** for the simulation and API.
+-   **FastAPI** and **Uvicorn** to serve the API and browser interface.
+-   **HTML, CSS, and JavaScript** for the frontend.
+
 ## Goals
 
 -   Generate a world from configurable settings and a seed.
@@ -247,15 +259,13 @@ Install dependencies from the project root:
 pip install -r requirements.txt
 ```
 
-If the project uses Uvicorn for its API, a typical development command
-is:
+From the project root, start the API and frontend with:
 
 ``` bash
-uvicorn ecosim.api.app:app --reload
+python -m uvicorn ecosim.api.app:app --reload
 ```
 
-Use the startup command in `ecosim/main.py` or the project's existing
-instructions if it differs.
+Then open `http://127.0.0.1:8000` in your browser.
 
 Run all tests:
 

@@ -92,10 +92,10 @@
       "maximum_strength": 1.0,
       "adaptation_rate": 0.15,
       "seasonal_strength": {
-        "spring": 0.4,
-        "summer": 0.25,
-        "autumn": 0.55,
-        "winter": 0.65
+        "spring": 0.8,
+        "summer": 0.5,
+        "autumn": 0.3,
+        "winter": 0.1
       }
     }
   },

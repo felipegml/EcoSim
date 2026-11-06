@@ -570,7 +570,8 @@ async function refreshSimulationState() {
 
         if (state.is_raining) {
             weatherStatus.textContent =
-                `🌧 Raining — ${state.intensity}`;
+                `🌧 Raining \n 
+                ${state.intensity}`;
         } else {
             weatherStatus.textContent = "☀ Clear";
         }
